@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      developer-id = direct distribution from your own site.
+      NOT mac-application (that's Mac App Store), which would also force
+      sandboxing rules we'd rather choose deliberately than inherit.
+    -->
+    <key>method</key>
+    <string>developer-id</string>
+
+    <key>signingStyle</key>
+    <string>automatic</string>
+
+    <!-- Fill in your 10-character Team ID. Find it with:
+         xcrun altool --list-providers  — or in the Apple Developer portal. -->
+    <key>teamID</key>
+    <string>57U2N6J9ZS</string>
+
+    <!-- Upload symbols to Apple? Nothing to gain here; no crash service. -->
+    <key>uploadSymbols</key>
+    <false/>
+
+    <key>destination</key>
+    <string>export</string>
+</dict>
+</plist>

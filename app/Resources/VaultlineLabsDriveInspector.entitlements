@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      THE ENTIRE PRIVACY CLAIM RESTS ON THIS FILE.
+
+      App Sandbox is ON. That is what makes the absence of a network entitlement
+      actually enforced by the OS rather than merely promised. A non-sandboxed app
+      can open sockets regardless of what its entitlements say — sandboxing is what
+      turns "we don't upload your data" into something a user can verify.
+
+      DO NOT ADD:
+        com.apple.security.network.client
+        com.apple.security.network.server
+
+      Adding either silently converts the strongest marketing claim this app has
+      into a lie. If a future feature seems to need the network, it does not go in
+      this target.
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <!--
+      Access to exactly what the user drags in or picks. Nothing else.
+
+      This is read-WRITE, not read-only, and the difference is not cosmetic:
+      read-only would let the app scan a drive but silently fail to save a
+      report, because the Save panel's grant is read-only too. The export is the
+      whole point of the app, so it would have looked broken in the one moment
+      that matters.
+
+      The app still only ever touches what the user hands it, and it never
+      writes to anything it scanned — only to the file chosen in a Save panel.
+    -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

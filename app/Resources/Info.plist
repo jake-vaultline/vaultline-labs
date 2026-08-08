@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+
+    <!--
+      CFBundleName drives the macOS menu bar title, which has very little room.
+      The full product name lives in CFBundleDisplayName (Finder, About panel).
+    -->
+    <key>CFBundleName</key>
+    <string>Drive Inspector</string>
+    <key>CFBundleDisplayName</key>
+    <string>Vaultline Labs Drive Inspector</string>
+
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticTermination</key>
+    <true/>
+    <key>NSSupportsSuddenTermination</key>
+    <false/>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Vaultline Solutions</string>
+
+    <!--
+      No NSAppTransportSecurity key, and no usage descriptions for network,
+      camera, mic, contacts, or location — because the app touches none of them.
+      Sandbox + user-selected read-only is the entire permission surface.
+    -->
+</dict>
+</plist>
