@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleName</key>
+    <string>Vaultline Ingest</string>
+    <key>CFBundleDisplayName</key>
+    <string>Vaultline Ingest</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSSupportsAutomaticTermination</key>
+    <false/>
+    <!-- An offload in progress must never be terminated out from under itself. -->
+    <key>NSSupportsSuddenTermination</key>
+    <false/>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Vaultline Solutions</string>
+
+    <!--
+      URL scheme used by the install command:
+        vaultline-ingest://pair?url=<nexus>&code=<pairing code>
+
+      This is what turns "send a client a command" into a working setup — the
+      script installs the app and then opens this URL, so the client is prompted
+      to pair without typing an address. Pairing is still confirmed by a human;
+      the URL only pre-fills it.
+    -->
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleURLName</key>
+        <string>com.vaultline.ingest.pair</string>
+        <key>CFBundleURLSchemes</key>
+        <array><string>vaultline-ingest</string></array>
+      </dict>
+    </array>
+
+    <!--
+      No NSAppTransportSecurity exception. A Media Nexus on a studio LAN will
+      often be plain HTTP on a private address, which ATS already permits for
+      local networking; if a real deployment needs more than that, it should be
+      solved with a certificate, not by switching ATS off globally.
+    -->
+</dict>
+</plist>

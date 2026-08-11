@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>developer-id</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <!-- Your 10-character Team ID. Same one as Drive Inspector. -->
+    <key>teamID</key>
+    <string>57U2N6J9ZS</string>
+    <key>uploadSymbols</key>
+    <false/>
+    <key>destination</key>
+    <string>export</string>
+</dict>
+</plist>

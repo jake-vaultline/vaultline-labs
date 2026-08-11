@@ -1,0 +1,66 @@
+# XcodeGen project definition.
+#   brew install xcodegen
+#   cd app && xcodegen generate && open VaultlineIngest.xcodeproj
+
+name: VaultlineIngest
+
+options:
+  bundleIdPrefix: com.vaultline
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+targets:
+  VaultlineIngest:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_NAME: VaultlineIngest
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_BUNDLE_IDENTIFIER: com.vaultline.ingest
+        INFOPLIST_FILE: Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Resources/VaultlineIngest.entitlements
+
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: YES
+
+        MARKETING_VERSION: "0.2.1"
+        CURRENT_PROJECT_VERSION: 2
+        SWIFT_VERSION: "5.9"
+        SWIFT_STRICT_CONCURRENCY: minimal
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+        DEVELOPMENT_TEAM: "57U2N6J9ZS"
+      configs:
+        Debug:
+          # Local builds/tests use an ad-hoc signature. Developer ID is a
+          # distribution identity and a Mac Development certificate is not
+          # installed on every build machine.
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          DEVELOPMENT_TEAM: ""
+        Release:
+          CODE_SIGN_STYLE: Manual
+          # Two same-name Developer ID identities are present; pin the working
+          # private key instead of letting Xcode choose the unusable duplicate.
+          CODE_SIGN_IDENTITY: "F0C4C075498F5F67CBB94495DB0115D3DE89E835"
+
+  VaultlineIngestTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: VaultlineIngest
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vaultline.ingest.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        SWIFT_VERSION: "5.9"

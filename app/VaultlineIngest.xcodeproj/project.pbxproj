@@ -1,0 +1,557 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AA555146EDD3B7B1252AC /* XXHash64.swift */; };
+		0BC3BD43DCB9850532E6EFA1 /* IngestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450B2FE5DEF28800BED5EA1A /* IngestView.swift */; };
+		36F4F8285C58F4A6BF94D9BA /* NexusClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9815524639D944468980C19 /* NexusClient.swift */; };
+		3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6076C926FFBC6E541DD27B8 /* Theme.swift */; };
+		3CE61B42308862ED8EEBE7E0 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BD9B3704F803180086D79E /* KeychainTests.swift */; };
+		46196867D65F13F5DBCA12F3 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBECC7C3122C903D11E446 /* App.swift */; };
+		487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */; };
+		4F78583CE5773543E6DFEED2 /* DrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */; };
+		628AA6B8B4E4ED62E70B67BD /* JobSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38572BDEE3E7E7E61325CF86 /* JobSheet.swift */; };
+		62ACD351F5311D0DD0F2A2C3 /* FormViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397F9643CBE44140DD98B6CD /* FormViews.swift */; };
+		668F9E7D5B98417229697BEA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2DC857F29E9C077BB366E1C /* Assets.xcassets */; };
+		6755F7DE983156923C5BBDC3 /* DrivePassportClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC43C5E47A7254106F996873 /* DrivePassportClient.swift */; };
+		741C74366F4353C8012B0BB1 /* IngestForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */; };
+		7F2FE3BCC00C20D33FC93E22 /* RealDrivePassportIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */; };
+		817D97405A9C3A859F60479F /* PassportOutboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */; };
+		8ABFE5790AF85990C3A99384 /* VolumeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10717594ED2840CB5C8F137D /* VolumeMonitor.swift */; };
+		8F5E5EED0A82C145025A4086 /* PassportReconnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */; };
+		910A3442757731973467C56D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C570AAEF5E04182780B6B4C /* AppState.swift */; };
+		A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */; };
+		ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */; };
+		AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1696B1EC98B3EE707114CF /* SetupWizard.swift */; };
+		C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A03FD61219C94637A2D1321 /* StructureBuilder.swift */; };
+		C912E871792BAF58134472CD /* DriveIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */; };
+		CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC9F0F2D3F92CB526913833 /* Checksums.swift */; };
+		CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 853C340DC6E6BDE4BC416F73 /* SettingsView.swift */; };
+		CE56991C0A87C3A54FA3AB7F /* NamingAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226428106CC8ACEA86164662 /* NamingAnalyzer.swift */; };
+		E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F006E19AEDFF32901C1282 /* OffloadEngine.swift */; };
+		E515F7D39B693ACBB914CACA /* NameTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B524C5E579571F225EECD2C /* NameTemplate.swift */; };
+		E889E3905FD607A20CDD51C7 /* PassportOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */; };
+		F66315C03405E0BD9C8AB15D /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78A00530EE13C5692F84514 /* Config.swift */; };
+		F92A1FD22C8265D998A0CD58 /* VolumeIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */; };
+		FA1AC09743BCF9B032C7FA06 /* MHLWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE35658D613478FB3A539F8 /* MHLWriter.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9A6A6330728CEFBA5373B0BF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E56FC8820C89D27EE2A46A49 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4FBD4A22BCBB970D88197FBB;
+			remoteInfo = VaultlineIngest;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		06F006E19AEDFF32901C1282 /* OffloadEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffloadEngine.swift; sourceTree = "<group>"; };
+		0BC9F0F2D3F92CB526913833 /* Checksums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Checksums.swift; sourceTree = "<group>"; };
+		10717594ED2840CB5C8F137D /* VolumeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeMonitor.swift; sourceTree = "<group>"; };
+		15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeScannerTests.swift; sourceTree = "<group>"; };
+		226428106CC8ACEA86164662 /* NamingAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingAnalyzer.swift; sourceTree = "<group>"; };
+		253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportOutbox.swift; sourceTree = "<group>"; };
+		38572BDEE3E7E7E61325CF86 /* JobSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobSheet.swift; sourceTree = "<group>"; };
+		397F9643CBE44140DD98B6CD /* FormViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormViews.swift; sourceTree = "<group>"; };
+		39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmarks.swift; sourceTree = "<group>"; };
+		3C570AAEF5E04182780B6B4C /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestForm.swift; sourceTree = "<group>"; };
+		450B2FE5DEF28800BED5EA1A /* IngestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestView.swift; sourceTree = "<group>"; };
+		4B524C5E579571F225EECD2C /* NameTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameTemplate.swift; sourceTree = "<group>"; };
+		53DBECC7C3122C903D11E446 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivesView.swift; sourceTree = "<group>"; };
+		67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveIdentityTests.swift; sourceTree = "<group>"; };
+		6A03FD61219C94637A2D1321 /* StructureBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructureBuilder.swift; sourceTree = "<group>"; };
+		6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealDrivePassportIntegrationTests.swift; sourceTree = "<group>"; };
+		80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VaultlineIngest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportOutboxTests.swift; sourceTree = "<group>"; };
+		853C340DC6E6BDE4BC416F73 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		8E4313427FE05C18F5BD54DE /* VaultlineIngestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VaultlineIngestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8F1696B1EC98B3EE707114CF /* SetupWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWizard.swift; sourceTree = "<group>"; };
+		8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentityTests.swift; sourceTree = "<group>"; };
+		95BD9B3704F803180086D79E /* KeychainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTests.swift; sourceTree = "<group>"; };
+		B2DC857F29E9C077BB366E1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B9815524639D944468980C19 /* NexusClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusClient.swift; sourceTree = "<group>"; };
+		BCE35658D613478FB3A539F8 /* MHLWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MHLWriter.swift; sourceTree = "<group>"; };
+		C90AA555146EDD3B7B1252AC /* XXHash64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XXHash64.swift; sourceTree = "<group>"; };
+		D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentity.swift; sourceTree = "<group>"; };
+		E6076C926FFBC6E541DD27B8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		E78A00530EE13C5692F84514 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportReconnectTests.swift; sourceTree = "<group>"; };
+		FC43C5E47A7254106F996873 /* DrivePassportClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivePassportClient.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2BC4F830A43E1A456D3376C2 = {
+			isa = PBXGroup;
+			children = (
+				45BBF564CF7070DEA098ECD7 /* Resources */,
+				52EB5F3225B23B8BE81E68B1 /* Sources */,
+				C528C307BFE235A290CE05EB /* Tests */,
+				AF3940AD5D8294567345178E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		45BBF564CF7070DEA098ECD7 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B2DC857F29E9C077BB366E1C /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		52EB5F3225B23B8BE81E68B1 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				53DBECC7C3122C903D11E446 /* App.swift */,
+				3C570AAEF5E04182780B6B4C /* AppState.swift */,
+				39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */,
+				0BC9F0F2D3F92CB526913833 /* Checksums.swift */,
+				E78A00530EE13C5692F84514 /* Config.swift */,
+				FC43C5E47A7254106F996873 /* DrivePassportClient.swift */,
+				5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */,
+				397F9643CBE44140DD98B6CD /* FormViews.swift */,
+				3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */,
+				450B2FE5DEF28800BED5EA1A /* IngestView.swift */,
+				38572BDEE3E7E7E61325CF86 /* JobSheet.swift */,
+				BCE35658D613478FB3A539F8 /* MHLWriter.swift */,
+				4B524C5E579571F225EECD2C /* NameTemplate.swift */,
+				226428106CC8ACEA86164662 /* NamingAnalyzer.swift */,
+				B9815524639D944468980C19 /* NexusClient.swift */,
+				06F006E19AEDFF32901C1282 /* OffloadEngine.swift */,
+				253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */,
+				853C340DC6E6BDE4BC416F73 /* SettingsView.swift */,
+				8F1696B1EC98B3EE707114CF /* SetupWizard.swift */,
+				6A03FD61219C94637A2D1321 /* StructureBuilder.swift */,
+				E6076C926FFBC6E541DD27B8 /* Theme.swift */,
+				D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */,
+				10717594ED2840CB5C8F137D /* VolumeMonitor.swift */,
+				C90AA555146EDD3B7B1252AC /* XXHash64.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		AF3940AD5D8294567345178E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */,
+				8E4313427FE05C18F5BD54DE /* VaultlineIngestTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C528C307BFE235A290CE05EB /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */,
+				95BD9B3704F803180086D79E /* KeychainTests.swift */,
+				84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */,
+				EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */,
+				6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */,
+				8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */,
+				15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4FBD4A22BCBB970D88197FBB /* VaultlineIngest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5BF134D79E6B080CD0816517 /* Build configuration list for PBXNativeTarget "VaultlineIngest" */;
+			buildPhases = (
+				858CF9744EF61768EC5C69C6 /* Sources */,
+				35DE14CA7C400660A160940E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VaultlineIngest;
+			packageProductDependencies = (
+			);
+			productName = VaultlineIngest;
+			productReference = 80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */;
+			productType = "com.apple.product-type.application";
+		};
+		82F554E18F3CB6BF3D9D7417 /* VaultlineIngestTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 078983A6C905B56DFE09208E /* Build configuration list for PBXNativeTarget "VaultlineIngestTests" */;
+			buildPhases = (
+				273C5685D693563BA7020A12 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1666EBF7AA95A2C425EDDD11 /* PBXTargetDependency */,
+			);
+			name = VaultlineIngestTests;
+			packageProductDependencies = (
+			);
+			productName = VaultlineIngestTests;
+			productReference = 8E4313427FE05C18F5BD54DE /* VaultlineIngestTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E56FC8820C89D27EE2A46A49 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					4FBD4A22BCBB970D88197FBB = {
+						ProvisioningStyle = Manual;
+					};
+					82F554E18F3CB6BF3D9D7417 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 0DCE46316D0C59621EB8391C /* Build configuration list for PBXProject "VaultlineIngest" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 2BC4F830A43E1A456D3376C2;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AF3940AD5D8294567345178E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4FBD4A22BCBB970D88197FBB /* VaultlineIngest */,
+				82F554E18F3CB6BF3D9D7417 /* VaultlineIngestTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		35DE14CA7C400660A160940E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				668F9E7D5B98417229697BEA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		273C5685D693563BA7020A12 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C912E871792BAF58134472CD /* DriveIdentityTests.swift in Sources */,
+				3CE61B42308862ED8EEBE7E0 /* KeychainTests.swift in Sources */,
+				817D97405A9C3A859F60479F /* PassportOutboxTests.swift in Sources */,
+				8F5E5EED0A82C145025A4086 /* PassportReconnectTests.swift in Sources */,
+				7F2FE3BCC00C20D33FC93E22 /* RealDrivePassportIntegrationTests.swift in Sources */,
+				ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */,
+				A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		858CF9744EF61768EC5C69C6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				46196867D65F13F5DBCA12F3 /* App.swift in Sources */,
+				910A3442757731973467C56D /* AppState.swift in Sources */,
+				487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */,
+				CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */,
+				F66315C03405E0BD9C8AB15D /* Config.swift in Sources */,
+				6755F7DE983156923C5BBDC3 /* DrivePassportClient.swift in Sources */,
+				4F78583CE5773543E6DFEED2 /* DrivesView.swift in Sources */,
+				62ACD351F5311D0DD0F2A2C3 /* FormViews.swift in Sources */,
+				741C74366F4353C8012B0BB1 /* IngestForm.swift in Sources */,
+				0BC3BD43DCB9850532E6EFA1 /* IngestView.swift in Sources */,
+				628AA6B8B4E4ED62E70B67BD /* JobSheet.swift in Sources */,
+				FA1AC09743BCF9B032C7FA06 /* MHLWriter.swift in Sources */,
+				E515F7D39B693ACBB914CACA /* NameTemplate.swift in Sources */,
+				CE56991C0A87C3A54FA3AB7F /* NamingAnalyzer.swift in Sources */,
+				36F4F8285C58F4A6BF94D9BA /* NexusClient.swift in Sources */,
+				E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */,
+				E889E3905FD607A20CDD51C7 /* PassportOutbox.swift in Sources */,
+				CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */,
+				AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */,
+				C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */,
+				3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */,
+				F92A1FD22C8265D998A0CD58 /* VolumeIdentity.swift in Sources */,
+				8ABFE5790AF85990C3A99384 /* VolumeMonitor.swift in Sources */,
+				005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1666EBF7AA95A2C425EDDD11 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4FBD4A22BCBB970D88197FBB /* VaultlineIngest */;
+			targetProxy = 9A6A6330728CEFBA5373B0BF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		25DB99588C755E65A7EE9A92 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest.tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VaultlineIngest.app/Contents/MacOS/VaultlineIngest";
+			};
+			name = Release;
+		};
+		2FDFA416501B2E70CF401816 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Resources/VaultlineIngest.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest;
+				PRODUCT_NAME = VaultlineIngest;
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		528B5C66FB0163A510EF4663 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest.tests;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VaultlineIngest.app/Contents/MacOS/VaultlineIngest";
+			};
+			name = Debug;
+		};
+		6EE0000053C00DEBE3E141EC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		77834F3AC06BAF6A3FEFD302 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DDF0AA26B230ECD9B1D0685B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Resources/VaultlineIngest.entitlements;
+				CODE_SIGN_IDENTITY = F0C4C075498F5F67CBB94495DB0115D3DE89E835;
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 57U2N6J9ZS;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.2.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest;
+				PRODUCT_NAME = VaultlineIngest;
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		078983A6C905B56DFE09208E /* Build configuration list for PBXNativeTarget "VaultlineIngestTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				528B5C66FB0163A510EF4663 /* Debug */,
+				25DB99588C755E65A7EE9A92 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		0DCE46316D0C59621EB8391C /* Build configuration list for PBXProject "VaultlineIngest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				77834F3AC06BAF6A3FEFD302 /* Debug */,
+				6EE0000053C00DEBE3E141EC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5BF134D79E6B080CD0816517 /* Build configuration list for PBXNativeTarget "VaultlineIngest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2FDFA416501B2E70CF401816 /* Debug */,
+				DDF0AA26B230ECD9B1D0685B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E56FC8820C89D27EE2A46A49 /* Project object */;
+}

@@ -1,0 +1,30 @@
+.DS_Store
+**/.DS_Store
+
+# Generated builds and local tool state
+app/build/
+DerivedData/
+.build/
+.swiftpm/
+*.xcresult
+*.dSYM/
+**/xcuserdata/
+*.xcuserstate
+
+# Credentials and local configuration
+.env
+.env.*
+*.pem
+*.key
+*.p8
+*.p12
+*.cer
+*.crt
+*.mobileprovision
+
+# Runtime state and logs
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
