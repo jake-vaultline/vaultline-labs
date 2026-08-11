@@ -6,6 +6,8 @@ app/build/
 DerivedData/
 .build/
 .swiftpm/
+*.dmg
+*.xcarchive
 *.xcresult
 *.dSYM/
 **/xcuserdata/
@@ -14,6 +16,7 @@ DerivedData/
 # Credentials and local configuration
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 *.p8
