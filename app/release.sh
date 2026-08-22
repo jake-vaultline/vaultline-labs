@@ -95,6 +95,9 @@ if [[ $NOTARIZE -eq 1 ]]; then
   ln -s /Applications "$STAGE/Applications"
   hdiutil create -volname "Vaultline Labs Drive Inspector" \
                  -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+  # Repackaging around the stapled app changes the DMG hash, so this final
+  # image needs its own accepted notary submission before its ticket exists.
+  xcrun notarytool submit "$DMG" --keychain-profile "$KEYCHAIN_PROFILE" --wait
   xcrun stapler staple "$DMG"
 
   say "Final gatekeeper check"
