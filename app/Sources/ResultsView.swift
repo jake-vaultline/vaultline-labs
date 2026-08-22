@@ -13,12 +13,12 @@ struct ResultsView: View {
                 header
                 statRow
                 capacity
+                duplicates
                 categoryBreakdown
                 probeBreakdown
                 cameras
                 extensionBreakdown
                 twoColumn
-                duplicates
                 attention
             }
             .padding(VL.Space.l)
@@ -66,6 +66,11 @@ struct ResultsView: View {
         if snapshot.probe.isRunning {
             parts.append("reading media \(Int(snapshot.probe.progress * 100))%")
         }
+        if snapshot.dupes.isPaused {
+            parts.append("duplicate verification paused")
+        } else if snapshot.dupes.wasCancelled {
+            parts.append("duplicate verification cancelled")
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -84,12 +89,12 @@ struct ResultsView: View {
             VLStat(label: "Folders",
                    value: Fmt.count(snapshot.foldersScanned),
                    note: snapshot.isComplete ? "\(Fmt.count(snapshot.emptyFolders.count)) empty" : "—")
-            VLStat(label: "Recoverable",
+            VLStat(label: "Verified duplicate space",
                    value: snapshot.dupes.recoverableBytes > 0
                        ? Fmt.bytes(snapshot.dupes.recoverableBytes)
                        : (snapshot.dupes.isRunning ? "…" : "—"),
                    note: snapshot.dupes.duplicateFileCount > 0
-                       ? "\(Fmt.count(snapshot.dupes.duplicateFileCount)) likely duplicates" : "—",
+                       ? "\(Fmt.count(snapshot.dupes.duplicateFileCount)) extra copies" : "files 4 MB and larger",
                    tint: snapshot.dupes.recoverableBytes > 0 ? VL.amber : VL.ink)
         }
     }
@@ -225,15 +230,23 @@ struct ResultsView: View {
     @ViewBuilder
     private var duplicates: some View {
         let d = snapshot.dupes
-        if !d.groups.isEmpty {
+        if d.candidatesTotal > 0 || d.isComplete || d.isRunning || d.isPaused || d.wasCancelled {
             VStack(alignment: .leading, spacing: VL.Space.s) {
-                SectionLabel("Potential duplicates") {
-                    Text("\(Fmt.files(d.duplicateFileCount)) · \(Fmt.bytes(d.recoverableBytes)) recoverable")
+                SectionLabel("Verified duplicates") {
+                    Text("\(Fmt.count(d.verifiedGroupCount)) groups · \(Fmt.bytes(d.recoverableBytes)) reclaimable")
                         .font(.system(size: 10.5)).foregroundStyle(VL.inkFaint).monospacedDigit()
                 }
-                VStack(spacing: 1) {
-                    ForEach(d.groups.prefix(25)) { g in
-                        DuplicateGroupRow(group: g, rootPath: snapshot.rootPath)
+                if d.groups.isEmpty {
+                    VLNotice(title: duplicateEmptyTitle(d)) {
+                        Text(duplicateStatus(d))
+                            .font(VL.small).foregroundStyle(VL.inkDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    VStack(spacing: 1) {
+                        ForEach(d.groups.prefix(25)) { g in
+                            DuplicateGroupRow(group: g, rootPath: snapshot.rootPath)
+                        }
                     }
                 }
                 if d.groups.count > 25 {
@@ -241,14 +254,42 @@ struct ResultsView: View {
                     Text("+ \(Fmt.count(rest)) more \(rest == 1 ? "group" : "groups") — see the exported report for the full list")
                         .font(VL.small).foregroundStyle(VL.inkFaint)
                 }
-                if d.hitReadBudget {
-                    Text("This check stopped early against its read budget, so there may be more.")
+                if d.isPaused {
+                    Text("\(Fmt.files(d.remainingCandidateFiles)) still need verification. Continue after the media analysis finishes; verified totals above remain exact.")
                         .font(VL.small).foregroundStyle(VL.inkFaint)
                 }
-                Text("Matched by size and content hash. Verify before deleting anything.")
+                if d.unreadableFiles > 0 || d.changedFiles > 0 {
+                    Text("\(Fmt.files(d.unreadableFiles)) unreadable · \(Fmt.files(d.changedFiles)) changed during the scan and were excluded.")
+                        .font(VL.small).foregroundStyle(VL.inkFaint)
+                }
+                if d.wasCancelled {
+                    Text("Verification was cancelled. \(Fmt.files(d.cancelledFiles)) were unfinished and excluded; verified totals above remain exact.")
+                        .font(VL.small).foregroundStyle(VL.inkFaint)
+                }
+                Text("Files 4 MB and larger · matched by complete SHA-256 content hash · verify paths before deleting anything.")
                     .font(VL.small).foregroundStyle(VL.inkDim)
             }
         }
+    }
+
+    private func duplicateEmptyTitle(_ d: DuplicateSummary) -> String {
+        if d.isRunning { return "Verifying file contents…" }
+        if d.isPaused { return "No verified groups yet" }
+        if d.wasCancelled { return "Duplicate verification cancelled" }
+        return "No verified duplicates found"
+    }
+
+    private func duplicateStatus(_ d: DuplicateSummary) -> String {
+        if d.isRunning {
+            return "\(Fmt.files(d.candidatesChecked)) of \(Fmt.files(d.candidatesTotal)) size-matched candidates checked; \(Fmt.bytes(d.bytesRead)) read."
+        }
+        if d.isPaused {
+            return "\(Fmt.files(d.remainingCandidateFiles)) remain outside this verification pass. Continue to expand the exact result."
+        }
+        if d.wasCancelled {
+            return "\(Fmt.files(d.cancelledFiles)) were unfinished and excluded. Run the scan again for a complete duplicate result."
+        }
+        return "The completed scan found no exact content matches among files 4 MB and larger."
     }
 
     // Duplicates has its own full section above (`duplicates`), so this is

@@ -26,10 +26,16 @@ final class ScanEngine: ObservableObject {
     private var prober: Task<Void, Never>?
     private var deduper: Task<Void, Never>?
     private var index = MediaIndex()
+    private var duplicateSession: DuplicateFinder.Session?
+    private var pendingProbeRefs: [FileEntry] = []
+    private var probeStarted = false
     private var accessedURL: URL?
 
     /// True while any pass is running.
     var isBusy: Bool { isScanning || snapshot.probe.isRunning || snapshot.dupes.isRunning }
+    var canContinueDuplicates: Bool {
+        snapshot.dupes.isPaused && !isScanning && !snapshot.probe.isRunning && !snapshot.dupes.isRunning
+    }
 
     func scan(_ url: URL) {
         cancel()
@@ -56,6 +62,9 @@ final class ScanEngine: ObservableObject {
         isScanning = true
 
         index = MediaIndex()
+        duplicateSession = nil
+        pendingProbeRefs = []
+        probeStarted = false
         let idx = index
         let stream = Walker.walk(root: url, seed: seed, index: idx)
 
@@ -71,18 +80,39 @@ final class ScanEngine: ObservableObject {
             guard let self, !Task.isCancelled else { return }
             self.isScanning = false
             self.consumer = nil
-            self.startProbe(idx.refs)
+            self.pendingProbeRefs = idx.refs
+            self.startDuplicates(idx.large)
         }
     }
 
     func cancel() {
+        let duplicateWasActive = snapshot.dupes.isRunning || snapshot.dupes.isPaused
         consumer?.cancel(); consumer = nil
         prober?.cancel();  prober = nil
         deduper?.cancel(); deduper = nil
         isScanning = false
         snapshot.probe.isRunning = false
         snapshot.dupes.isRunning = false
+        snapshot.dupes.isPaused = false
+        if duplicateWasActive {
+            snapshot.dupes.cancelledFiles = max(
+                snapshot.dupes.cancelledFiles,
+                max(snapshot.dupes.remainingCandidateFiles,
+                    snapshot.dupes.candidatesTotal - snapshot.dupes.candidatesChecked)
+            )
+            snapshot.dupes.remainingCandidateFiles = 0
+            snapshot.dupes.wasCancelled = true
+            snapshot.dupes.isComplete = false
+        }
+        duplicateSession = nil
+        pendingProbeRefs = []
+        probeStarted = false
         releaseAccess()
+    }
+
+    func continueDuplicates() {
+        guard canContinueDuplicates, duplicateSession != nil else { return }
+        startDuplicates([])
     }
 
     // MARK: Pass 2
@@ -91,7 +121,7 @@ final class ScanEngine: ObservableObject {
         let probable = refs.filter { $0.category.isMedia }
         guard !probable.isEmpty else {
             snapshot.probe.isComplete = true
-            startDuplicates()
+            releaseAccessIfFinished()
             return
         }
 
@@ -112,24 +142,20 @@ final class ScanEngine: ObservableObject {
             self.snapshot.probe.isRunning = false
             self.snapshot.probe.isComplete = !Task.isCancelled
             self.prober = nil
-            guard !Task.isCancelled else { self.releaseAccess(); return }
-            self.startDuplicates()
+            self.releaseAccessIfFinished()
         }
     }
 
     // MARK: Pass 3
 
-    private func startDuplicates() {
-        let candidates = index.large
-        guard candidates.count > 1 else {
-            snapshot.dupes.isComplete = true
-            releaseAccess()
-            return
+    private func startDuplicates(_ candidates: [FileEntry]) {
+        if duplicateSession == nil {
+            duplicateSession = DuplicateFinder.makeSession(candidates)
         }
-
+        guard let session = duplicateSession else { return }
         snapshot.dupes.isRunning = true
         deduper = Task { [weak self] in
-            let stream = DuplicateFinder.run(candidates)
+            let stream = DuplicateFinder.run(session)
             for await partial in stream {
                 guard let self, !Task.isCancelled else { return }
                 self.snapshot.dupes = partial
@@ -137,8 +163,19 @@ final class ScanEngine: ObservableObject {
             guard let self else { return }
             self.snapshot.dupes.isRunning = false
             self.deduper = nil
-            self.releaseAccess()
+            if !self.probeStarted {
+                self.probeStarted = true
+                self.startProbe(self.pendingProbeRefs)
+            } else {
+                self.releaseAccessIfFinished()
+            }
         }
+    }
+
+    private func releaseAccessIfFinished() {
+        guard !isScanning, !snapshot.probe.isRunning, !snapshot.dupes.isRunning,
+              !snapshot.dupes.isPaused else { return }
+        releaseAccess()
     }
 
     private func releaseAccess() {

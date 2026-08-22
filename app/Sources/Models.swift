@@ -132,16 +132,33 @@ struct DuplicateGroup: Identifiable {
 struct DuplicateSummary {
     var isRunning = false
     var isComplete = false
+    var isPaused = false
+    var wasCancelled = false
     var candidatesChecked = 0
     var candidatesTotal = 0
     var groups: [DuplicateGroup] = []
 
-    /// True when the scan stopped early against its read budget. The report must
-    /// say so — "218 duplicates" reads as complete unless you say it isn't.
-    var hitReadBudget = false
+    /// Files still waiting for either a partial-content check or final full-file
+    /// verification. They never contribute to the verified headline numbers.
+    var remainingCandidateFiles = 0
+
+    /// Files that could not be opened and files whose size/mtime changed while
+    /// they were being verified. Neither condition is evidence of duplication.
+    var unreadableFiles = 0
+    var changedFiles = 0
+    var cancelledFiles = 0
+
+    /// Actual file-content bytes read by the duplicate lane. This drives an
+    /// honest progress/status line without pretending file count equals work.
+    var bytesRead: Int64 = 0
 
     var duplicateFileCount: Int { groups.reduce(0) { $0 + $1.paths.count - 1 } }
     var recoverableBytes: Int64 { groups.reduce(0) { $0 + $1.recoverable } }
+    var verifiedGroupCount: Int { groups.count }
+    var scopeComplete: Bool {
+        isComplete && !wasCancelled && remainingCandidateFiles == 0
+            && unreadableFiles == 0 && changedFiles == 0 && cancelledFiles == 0
+    }
     var progress: Double {
         candidatesTotal > 0 ? Double(candidatesChecked) / Double(candidatesTotal) : 0
     }

@@ -19,6 +19,7 @@ enum ReportBuilder {
             ? "<span class=\"cap\">\(Fmt.bytes(s.volumeTotalBytes))</span>" : ""
 
         var body = ""
+        body += duplicatesBlock(s)
         body += capacityBlock(s)
         body += typeBlock(s)
         body += codecBlock(s)
@@ -27,7 +28,6 @@ enum ReportBuilder {
         body += yearBlock(s)
         body += foldersBlock(s)
         body += filesBlock(s)
-        body += duplicatesBlock(s)
         body += attentionBlock(s)
 
         var out = "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n"
@@ -62,8 +62,8 @@ enum ReportBuilder {
         out += tile("Footage", duration, "across \(Fmt.count(clips)) clips")
         out += tile("Date range", Fmt.dateRange(s.earliest, s.latest), dateSource)
         if s.dupes.recoverableBytes > 0 {
-            out += tile("Recoverable", Fmt.bytes(s.dupes.recoverableBytes),
-                        "\(Fmt.count(s.dupes.duplicateFileCount)) likely duplicates")
+            out += tile("Verified duplicate space", Fmt.bytes(s.dupes.recoverableBytes),
+                        "\(Fmt.count(s.dupes.duplicateFileCount)) extra copies")
         } else {
             out += tile("Largest folder", Fmt.bytes(s.largestFolders.first?.bytes ?? 0),
                         s.largestFolders.first?.name ?? "—")
@@ -202,7 +202,7 @@ enum ReportBuilder {
 
     private static func duplicatesBlock(_ s: ScanSnapshot) -> String {
         let d = s.dupes
-        guard !d.groups.isEmpty else { return "" }
+        guard d.candidatesTotal > 0 || d.isComplete || d.isRunning || d.isPaused || d.wasCancelled else { return "" }
         let rows = d.groups.prefix(10).map { g -> String in
             let others = g.paths.dropFirst().map { rel($0, s.rootPath) }.joined(separator: "\n")
             return "<tr><td>\(esc(g.name))<div class=\"path\">\(esc(rel(g.paths[0], s.rootPath)))</div>"
@@ -211,16 +211,21 @@ enum ReportBuilder {
                  + "<td class=\"n\">\(Fmt.bytes(g.recoverable))</td></tr>"
         }.joined()
 
-        // "Potential" is doing real work in that heading. Matching on size plus
-        // both ends of the file is strong evidence, not proof.
-        var lede = "Matched by size and content hash. Verify before deleting anything."
-        if d.hitReadBudget {
-            lede += " This check stopped early against its read budget, so there may be more."
+        var lede = "Files 4 MB and larger. Every reported group matched by complete SHA-256 content hash; verify paths before deleting anything."
+        if d.isPaused || d.remainingCandidateFiles > 0 {
+            lede += " \(Fmt.files(d.remainingCandidateFiles)) still require verification and are excluded from these totals."
         }
-        return "<section><h2>Potential duplicates</h2><p class=\"lede\">\(lede)</p>"
-             + "<table><thead><tr><th>File</th><th style=\"text-align:right\">Copies</th>"
-             + "<th style=\"text-align:right\">Recoverable</th></tr></thead>"
-             + "<tbody>\(rows)</tbody></table></section>\n"
+        if d.unreadableFiles > 0 || d.changedFiles > 0 {
+            lede += " \(Fmt.files(d.unreadableFiles)) were unreadable and \(Fmt.files(d.changedFiles)) changed during the scan; both were excluded."
+        }
+        if d.wasCancelled {
+            lede += " Verification was cancelled; \(Fmt.files(d.cancelledFiles)) were unfinished and excluded."
+        }
+        let table = rows.isEmpty
+            ? "<div class=\"att\"><div class=\"it\"><div><b>No verified duplicate groups in the completed scope.</b><span>Potential and incomplete candidates are never counted as reclaimable.</span></div></div></div>"
+            : "<table><thead><tr><th>File</th><th style=\"text-align:right\">Copies</th><th style=\"text-align:right\">Reclaimable</th></tr></thead><tbody>\(rows)</tbody></table>"
+        return "<section><h2>Verified duplicates</h2><p class=\"lede\">\(lede)</p>"
+             + table + "</section>\n"
     }
 
     private static func attentionBlock(_ s: ScanSnapshot) -> String {
@@ -228,8 +233,8 @@ enum ReportBuilder {
 
         if s.dupes.recoverableBytes > 0 {
             items.append(item(
-                "\(Fmt.count(s.dupes.duplicateFileCount)) likely duplicate files — \(Fmt.bytes(s.dupes.recoverableBytes)) recoverable",
-                "Across \(Fmt.count(s.dupes.groups.count)) groups. Check them before deleting."))
+                "\(Fmt.count(s.dupes.duplicateFileCount)) verified extra copies — \(Fmt.bytes(s.dupes.recoverableBytes)) reclaimable",
+                "Across \(Fmt.count(s.dupes.groups.count)) exact-content groups. Check paths before deleting."))
         }
         if !s.emptyFolders.isEmpty {
             items.append(item(
@@ -263,11 +268,9 @@ enum ReportBuilder {
 
     private static func footer(_ s: ScanSnapshot) -> String {
         var out = "<footer class=\"foot\">"
-        out += "<div class=\"q\">You already captured this footage. "
-        out += "The hard part is finding it again three years later.</div>"
-        out += "<div class=\"p\">This report covers one drive. Vaultline indexes every drive your "
-        out += "team owns — searchable, tagged, transcribed — built around your existing storage, "
-        out += "without moving your original media.</div>"
+        out += "<div class=\"q\">The duplicate number is one storage decision. The workflow around it is the larger system.</div>"
+        out += "<div class=\"p\">A $499 Media Operations Blueprint maps the storage, ingest, archive, search and handoff changes worth making next—without assuming you need new software or more capacity. "
+        out += "<a class=\"cta\" href=\"https://www.vaultlinesolutions.com/offers/media-operations-blueprint?entry_context=duplicate-finder-report\">See the Media Operations Blueprint →</a></div>"
         out += "<div class=\"r\"><span class=\"t\">"
         out += img("report-icon-white", cls: "", alt: "")
         out += "Custom software for serious footage libraries.</span>"
@@ -311,7 +314,7 @@ enum ReportBuilder {
     }
 
     static var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
     }
 
     /// Inlines a bundled PNG as a data URL. A report that renders a broken image

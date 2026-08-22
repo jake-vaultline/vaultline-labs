@@ -66,6 +66,10 @@ struct ContentView: View {
                 Button("Stop") { engine.cancel() }.buttonStyle(VLButton(destructiveTint: true))
                 Text(busyLabel).font(VL.small).foregroundStyle(VL.inkDim).monospacedDigit()
             } else {
+                if engine.canContinueDuplicates {
+                    Button("Continue duplicate verification") { engine.continueDuplicates() }
+                        .buttonStyle(VLPrimaryButton())
+                }
                 Button("Scan Another…", action: chooseFolder).buttonStyle(VLButton())
             }
 
@@ -92,13 +96,13 @@ struct ContentView: View {
     }
 
     private var busyLabel: String {
+        let d = engine.snapshot.dupes
+        if d.isRunning {
+            return "Verifying duplicates — \(Fmt.count(d.candidatesChecked)) of \(Fmt.count(d.candidatesTotal)) candidates · \(Fmt.bytes(d.bytesRead)) read"
+        }
         let p = engine.snapshot.probe
         if p.isRunning {
             return "Reading media — \(Fmt.count(p.filesProbed)) of \(Fmt.count(p.filesToProbe))"
-        }
-        let d = engine.snapshot.dupes
-        if d.isRunning {
-            return "Checking for duplicates — \(Fmt.count(d.candidatesChecked)) of \(Fmt.count(d.candidatesTotal))"
         }
         return "Scanning…"
     }

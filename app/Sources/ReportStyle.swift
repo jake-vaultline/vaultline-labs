@@ -127,6 +127,7 @@ details td,details th{font-size:11.5px}
 .foot{background:var(--charcoal);color:var(--white);padding:30px 44px 26px;margin-top:8px}
 .foot .q{font-size:17px;font-weight:500;letter-spacing:-.2px;max-width:600px;line-height:1.42}
 .foot .p{margin-top:11px;font-size:13px;color:var(--steel);max-width:600px}
+.foot .cta{display:inline-block;margin-top:8px;color:var(--white);font-weight:600;text-decoration:none}
 .foot .r{margin-top:22px;padding-top:15px;border-top:1px solid rgba(244,241,234,.14);
          display:flex;justify-content:space-between;align-items:baseline;gap:16px}
 .foot .r .t{font-size:12.5px;color:var(--white);display:flex;align-items:center;gap:11px}

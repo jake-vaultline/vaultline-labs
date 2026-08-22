@@ -38,8 +38,8 @@ targets:
         # entitlements file before changing anything here.
         ENABLE_APP_SANDBOX: YES
 
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: 2
         SWIFT_VERSION: "5.9"
         SWIFT_STRICT_CONCURRENCY: minimal
         MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -55,3 +55,17 @@ targets:
           # to find a cert that isn't there.
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "Developer ID Application"
+
+  VaultlineLabsDriveInspectorTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: VaultlineLabsDriveInspector
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.vaultline.labs.driveinspector.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "13.0"

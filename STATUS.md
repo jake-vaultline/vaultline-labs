@@ -1,7 +1,8 @@
 # Drive Inspector — is it ready to ship?
 
-**Signed, notarized DMG built and verified, UI/UX pass from Jake's review incorporated.
-Waiting on hosting + real-drive testing.** Updated 2026-08-08.
+**Version 0.2 source candidate: all 0.1 inventory/probe/export capability retained,
+with exact-content duplicate verification promoted as the first actionable result.
+Not signed, notarized, published, or deployed.** Updated 2026-08-21 under VLP-206.
 
 ---
 
@@ -16,7 +17,7 @@ Waiting on hosting + real-drive testing.** Updated 2026-08-08.
 | ✅ **App icon** | Charcoal squircle + VL monogram, all 7 sizes |
 | ✅ **Permission model** | Sandboxed, user-selected read-only, no network entitlement |
 | ✅ **Release pipeline** | `release.sh` — archive → sign → entitlement guard → DMG → notarize → staple ×2 → verify |
-| ✅ **Pass 3 — duplicates** | Size grouping → partial hash (first + last 1 MB + size) → full hash only on collision. 4 MB floor, 24 GB read budget, says so when it stops early |
+| ✅ **Pass 3 — duplicates** | Size grouping → partial hash (first + last 1 MB + size) → full SHA-256 for every surviving collision. Only full-content matches count as reclaimable. 4 MB floor; 24 GB verification passes pause with explicit Continue and exact partial totals |
 | ✅ **Download page** | `download/index.html` |
 
 ## Before it goes public
@@ -45,7 +46,7 @@ against `SANDBOX-VOLUME-01`. All in the DMG built same day.
 | Report masthead | Removed "nothing left this Mac" from the meta line |
 | Domain | `vaultline.io` → `vaultlinesolutions.com`, in `ReportBuilder.swift`, `report-template.html`, and `download/index.html` |
 | Report polish | Reviewed the actual generated HTML (not just the template) end to end |
-| Duplicate detection in-app | Was aggregate-only (a stat + a notice banner). Now a real "Potential duplicates" section — expandable groups, every path, reveal-in-Finder per file |
+| Duplicate detection in-app | Was aggregate-only (a stat + a notice banner). Now the primary "Verified duplicates" result — exact full-content groups, reclaimable bytes, expandable paths, reveal-in-Finder per file, and explicit paused/unreadable/changed/cancelled exclusions |
 | Reveal in Finder | New — header "Reveal in Finder" for the scanned root, plus per-row on largest files/folders and duplicate paths, via `NSWorkspace.activateFileViewerSelecting` |
 | CSV export | Was one ambiguous `Section,Key,Count,Bytes` table where the same column meant different things per row, stitched to several ad hoc tables. Rewritten as one cleanly-headered table per section |
 | PDF export | Was silently broken — `WKWebView` was never attached to a window, which is a known cause of blank/truncated `.pdf(configuration:)` output. Now hosted in an offscreen borderless `NSWindow` before rendering. Verified: real multi-page content extracts with `pdftotext`, not a blank page |

@@ -49,7 +49,7 @@ SAMSUNG T7 — 3.84 TB
 - **Cameras detected** — Sony FX6 · FX3 · Canon R5C · DJI Mavic 3
 - **Largest folders** / **largest files**
 - **Folder tree visualization**
-- **Potential duplicates**
+- **Verified duplicates** — exact full-content SHA-256 groups for files 4 MB and larger; incomplete and excluded candidates are reported separately
 - **Empty folders**
 - **Project files detected**
 - **Media age** distribution
@@ -95,16 +95,18 @@ a clear "based on N of M files scanned" note.
 Cache by `(path, size, mtime)` so a rescan is near-instant. Rescanning the same drive
 next month should take seconds.
 
-### Pass 3 — duplicates (opt-in, run last)
+### Pass 3 — verified duplicates (run immediately after the filesystem walk)
 
 Never hash 2.7TB. Tiered:
 
 1. Group by exact file size — most files have no size twin, eliminated for free
 2. For size-collision groups only, hash first 1MB + last 1MB
-3. Full hash only when the partial hashes also collide
+3. Full SHA-256 every file whose partial hash also collides
 
-Near-instant in practice and accurate enough to label "potential duplicates," which is
-the honest framing anyway.
+Only the third tier can add a group or bytes to the verified/reclaimable result. Files under
+4 MB are explicitly outside the scope. Verification works in 24 GB read passes: a budget boundary
+pauses with exact completed totals and a Continue action instead of weakening the result. Media
+probing follows the duplicate pass and remains fully supported.
 
 ---
 

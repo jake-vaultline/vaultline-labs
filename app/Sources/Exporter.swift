@@ -124,7 +124,7 @@ enum Exporter {
     // column value. Every section is separated by a blank line and a plain
     // title line, which every spreadsheet app treats as harmless filler.
 
-    private static func csv(from s: ScanSnapshot) -> String {
+    static func csv(from s: ScanSnapshot) -> String {
         var out = "Vaultline Labs Drive Inspector — Drive Report\n\n"
 
         out += section("Summary", cols: ["Field", "Value"]) { rows in
@@ -181,12 +181,18 @@ enum Exporter {
             for f in s.largestFiles { rows.add([f.path, f.category.displayName, "\(f.size)"]) }
         }
 
-        out += section("Potential duplicates", cols: ["Group", "File", "Size", "Recoverable if kept once"]) { rows in
+        out += section("Verified duplicates (files 4 MB and larger)", cols: ["Group", "File", "Size", "Reclaimable if kept once", "Verification"]) { rows in
             for (i, g) in s.dupes.groups.enumerated() {
-                for p in g.paths { rows.add(["\(i + 1)", p, "\(g.size)", "\(g.recoverable)"]) }
+                for p in g.paths { rows.add(["\(i + 1)", p, "\(g.size)", "\(g.recoverable)", "Full SHA-256"]) }
             }
-            if s.dupes.hitReadBudget {
-                rows.add(["", "Stopped early against the read budget — there may be more", "", ""])
+            if s.dupes.remainingCandidateFiles > 0 {
+                rows.add(["", "\(s.dupes.remainingCandidateFiles) candidate files remain unverified and are excluded", "", "", "Incomplete"])
+            }
+            if s.dupes.unreadableFiles > 0 || s.dupes.changedFiles > 0 {
+                rows.add(["", "Excluded: \(s.dupes.unreadableFiles) unreadable; \(s.dupes.changedFiles) changed during scan", "", "", "Excluded"])
+            }
+            if s.dupes.wasCancelled {
+                rows.add(["", "Excluded: \(s.dupes.cancelledFiles) unfinished when verification was cancelled", "", "", "Cancelled"])
             }
         }
 

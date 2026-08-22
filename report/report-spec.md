@@ -109,7 +109,7 @@ Ship a maintained model-name mapping table. The top ~15 bodies cover most real d
 | Field | Pass | Notes |
 |---|---|---|
 | Empty folder count | P1 ✅ |
-| **Potential duplicates + recoverable bytes** | **P3** | Size group → partial hash (first+last 1MB) → full hash only on collision |
+| **Verified duplicates + reclaimable bytes** | **P3** | Files ≥4 MB: size group → partial hash (first+last 1MB) → full SHA-256 for every surviving collision; incomplete candidates excluded |
 | **Unprotected files + bytes** | **D** | See §5 |
 | **Estimated proxy storage** | **D** | Duration × bitrate assumption for clips ≥ 4K. State the assumption in the report — it's an estimate and should read like one |
 
