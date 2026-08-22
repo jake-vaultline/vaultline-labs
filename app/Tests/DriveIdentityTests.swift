@@ -81,5 +81,30 @@ final class DriveIdentityTests: XCTestCase {
         let decoded = try decoder.decode(DrivePassportClient.SnapshotBody.self, from: payload)
 
         XCTAssertEqual(decoded.clientEventId, "drive:time:hash")
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: payload) as? [String: Any])
+        XCTAssertEqual(Set(object.keys), Set([
+            "schema_version", "observed_at", "scan_mode", "file_count",
+            "total_bytes", "used_bytes", "free_bytes", "top_level",
+            "manifest_hash", "client_event_id",
+        ]))
+        let text = try XCTUnwrap(String(data: payload, encoding: .utf8))
+        for forbidden in ["filename", "relative_path", "absolute_path", "media_bytes"] {
+            XCTAssertFalse(text.contains(forbidden))
+        }
+    }
+
+    func testHostedSummaryIsBoundedAndDeterministic() {
+        var values = Dictionary(uniqueKeysWithValues: (0..<80).map {
+            ("Folder-\($0)", Int64($0))
+        })
+        values[String(repeating: "A", count: 180)] = 1_000
+
+        let bounded = DrivePassportClient.boundedTopLevel(values)
+
+        XCTAssertEqual(bounded.count, 64)
+        XCTAssertEqual(bounded.keys.map(\.count).max(), 120)
+        XCTAssertNil(bounded["Folder-0"])
+        XCTAssertEqual(bounded[String(repeating: "A", count: 120)], 1_000)
     }
 }

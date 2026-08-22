@@ -245,7 +245,7 @@ final class DrivePassportClient: ObservableObject {
             schemaVersion: 1, observedAt: observed, scanMode: "quick",
             fileCount: snapshot.fileCount, totalBytes: volume.totalBytes,
             usedBytes: max(0, volume.totalBytes - volume.freeBytes),
-            freeBytes: volume.freeBytes, topLevel: snapshot.topLevel,
+            freeBytes: volume.freeBytes, topLevel: Self.boundedTopLevel(snapshot.topLevel),
             change: change, manifestHash: manifestHash,
             clientEventId: "\(driveID):\(observed):\(manifestHash)")
         let snapshotResult = try await queueAndSendSnapshot(
@@ -394,6 +394,20 @@ final class DrivePassportClient: ObservableObject {
     private static func manifestHash(_ snapshot: VolumeSnapshot) -> String {
         let canonical = snapshot.folders.keys.sorted().map { "\($0)=\(snapshot.folders[$0]!)" }.joined(separator: "\n")
         return SHA256.hash(data: Data(canonical.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// The hosted passport is a quick last-known summary, not a remote file
+    /// index. Keep only the 64 largest top-level entries, cap their display
+    /// names, and never include a filename or machine-local path.
+    static func boundedTopLevel(_ values: [String: Int64]) -> [String: Int64] {
+        let prepared = values.compactMap { name, bytes -> (String, Int64)? in
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, bytes >= 0 else { return nil }
+            return (String(trimmed.prefix(120)), bytes)
+        }.sorted { lhs, rhs in
+            lhs.1 == rhs.1 ? lhs.0 < rhs.0 : lhs.1 > rhs.1
+        }.prefix(64)
+        return Dictionary(prepared, uniquingKeysWith: max)
     }
 
     /// Compose bounded identity evidence without ever treating the local
