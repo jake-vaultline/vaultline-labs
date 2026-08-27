@@ -87,12 +87,15 @@ enum IngestSidecar {
         out += "By                \(Host.current().localizedName ?? "unknown Mac")\n"
         out += "Tool              Vaultline Ingest \(version)\n\n"
 
-        let answered = fields.filter { !(answers[$0.id] ?? "").isEmpty }
+        let answered = fields.filter {
+            !(answers[$0.id] ?? $0.defaultValue)
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
         if !answered.isEmpty {
             out += "SHOOT\n" + String(repeating: "-", count: 52) + "\n"
             let width = answered.map(\.label.count).max() ?? 12
             for f in answered {
-                let value = answers[f.id] ?? ""
+                let value = answers[f.id] ?? f.defaultValue
                 if f.kind == .longText {
                     out += "\(f.label)\n"
                     for line in value.split(separator: "\n", omittingEmptySubsequences: false) {

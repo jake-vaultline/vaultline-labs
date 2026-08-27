@@ -21,6 +21,7 @@ struct DrivesView: View {
                 if monitor.volumes.isEmpty {
                     emptyState
                 } else {
+                    copyHealth
                     mounted
                     seen
                     scopeNote
@@ -34,6 +35,18 @@ struct DrivesView: View {
 
     private var mountedVolumes: [KnownVolume] { monitor.volumes.filter(\.isMounted) }
     private var pastVolumes: [KnownVolume] { monitor.volumes.filter { !$0.isMounted } }
+
+    @ViewBuilder
+    private var copyHealth: some View {
+        if !state.copyFindings.isEmpty {
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Copy health")
+                ForEach(state.copyFindings.prefix(12)) { finding in
+                    CopyFindingRow(finding: finding)
+                }
+            }
+        }
+    }
 
     @ViewBuilder
     private var mounted: some View {
@@ -65,7 +78,7 @@ struct DrivesView: View {
                 Image(systemName: state.config.nexus.isPaired ? "link" : "desktopcomputer")
                     .font(.system(size: 12)).foregroundStyle(VL.blue).padding(.top, 1)
                 Text(state.config.nexus.isPaired
-                     ? "Paired — these drives are also reported to your Media Nexus, so your team sees them alongside everyone else's."
+                     ? "Paired — completed drive scans are reported to your Media Nexus, so your team can compare them with everyone else's."
                      : "This is only what has been plugged into this Mac. Copies of this app don't see each other's drives; connecting to a Media Nexus is what makes it a team-wide picture.")
                     .font(VL.small).foregroundStyle(VL.inkDim)
                     .fixedSize(horizontal: false, vertical: true)
@@ -84,6 +97,59 @@ struct DrivesView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
+    }
+}
+
+private struct CopyFindingRow: View {
+    let finding: DriveCopyFinding
+
+    var body: some View {
+        Panel(tint: tint) {
+            HStack(alignment: .top, spacing: VL.Space.s) {
+                Image(systemName: icon)
+                    .font(.system(size: 12)).foregroundStyle(iconTint).padding(.top, 2)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(finding.name).font(VL.bodyMed)
+                    Text(summary).font(VL.small).foregroundStyle(VL.inkDim)
+                    Text(copyList).font(VL.monoSm).foregroundStyle(VL.inkFaint)
+                        .lineLimit(2).truncationMode(.middle)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private var summary: String {
+        switch finding.health {
+        case .singleCopy:
+            return "Only one indexed copy. Add or locate another before treating it as backed up."
+        case .discrepancy:
+            return "Copies disagree on file paths or sizes. Inspect them before the next backup."
+        case .matchingCopies:
+            return "\(finding.copies.count) indexed copies have matching paths and sizes."
+        }
+    }
+
+    private var copyList: String {
+        finding.copies.map {
+            "\($0.volumeName) · \(F.count($0.fileCount)) files · \(F.bytes($0.totalBytes))"
+        }.joined(separator: "   ")
+    }
+
+    private var icon: String {
+        switch finding.health {
+        case .singleCopy: return "externaldrive.badge.exclamationmark"
+        case .discrepancy: return "arrow.triangle.branch"
+        case .matchingCopies: return "checkmark.circle"
+        }
+    }
+
+    private var iconTint: Color {
+        finding.health == .matchingCopies ? VL.blue : VL.amber
+    }
+
+    private var tint: Color {
+        finding.health == .matchingCopies ? VL.slate : VL.amber.opacity(0.07)
     }
 }
 

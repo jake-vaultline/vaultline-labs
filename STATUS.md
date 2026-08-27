@@ -1,7 +1,7 @@
 # Vaultline Ingest — status
 
 **Compiled. Drive Passport MVP integrated. Developer ID signed, notarized, and stapled.**
-2026-08-09.
+2026-08-12.
 
 Release candidate: `app/build/VaultlineIngest-0.2.1.dmg` (universal, hardened,
 signed, notarized, and stapled). SHA-256:
@@ -10,7 +10,7 @@ Apple accepted submission `6b4f66a3-dbb8-4048-839b-a331cbce59fd`; stapler
 validation and Gatekeeper assessment of the mounted app both pass. The DMG is
 not yet published to the public download channel.
 
-Native verification: 20 XCTest cases executed, 18 passed, and the two opt-in
+Native verification: 22 XCTest cases executed, 20 passed, and the two opt-in
 real-drive cases skipped in the normal suite. The real-drive identity/transport
 case has also passed separately against a mounted SSD and the local service.
 
@@ -42,8 +42,15 @@ Every drive this Mac has seen, mounted or not. Capacity, last seen, sighting cou
 which is what makes it worth leaving installed.
 
 - Mount/unmount detected via `NSWorkspace`
-- Scanning is **explicit per drive**, never automatic — silently reading every disk
-  someone inserts is a surprising thing for a tool to do unasked
+- Scanning is manual by default. Scan-on-mount is available as an explicit local
+  setting or a managed Media Nexus rule
+- Scan rules can match complete folder names with a regular expression; with no rule,
+  top-level folders are tracked
+- Compares tracked folders across retained local drive snapshots and surfaces
+  single-copy risk, matching inventories, and path/size discrepancies. This is
+  deliberately labelled as inventory evidence, not byte verification
+- Reports each completed scan's volume and bounded collection metadata to Media Nexus
+  when paired; failed sync stays visibly local rather than implying success
 - Keyed on **volume UUID**, so three different cards at `/Volumes/Untitled` stay separate
 - Snapshot is a **folder-level fingerprint**, not a file index — a per-file record of a
   500k-file drive would make the registry bigger than the media it describes
@@ -84,6 +91,7 @@ New Job → shoot details → destinations → copy → verify → manifest → 
 | **Verify** | Every copy read back off disk and compared |
 | **Manifest** | ASC MHL, verified files only |
 | **Sidecar** | Plain-text record: the form answers plus files verified, algorithm, destinations, clashes, per-file hashes |
+| **Connected context** | The same non-empty, user-configured form values are sent as metadata with stable field IDs to Media Nexus for Archive and other modules |
 | **Results** | Per-file list, problems first |
 
 ---
@@ -120,7 +128,8 @@ identical means done, different means clash. No state file to go stale.
 **Verified means read back and matched**, after `synchronize()` — verifying against the
 page cache proves nothing about the disk.
 
-**Scanning is opt-in per drive.** See above.
+**Automatic scanning is opt-in.** Manual scans are always available; scan-on-mount only
+runs after a local user or managed Media Nexus config explicitly enables it.
 
 **Pairing needs a human click.** The install command pre-fills; it never connects silently.
 
@@ -160,6 +169,7 @@ corrupt project on a shoot day costs more trust than the feature could earn.
 | **Media Nexus endpoints** — `/api/relay/pair`, `/config`, `/ingest`, `/volumes` don't exist server-side | Claude, in the sandbox repo |
 | Multi-card queue | Claude |
 | Handoff summary as HTML/PDF matching Inspector's report | Claude |
+| Visual QA for Drive Scans settings and Copy Health — ScreenCaptureKit capture failed on 2026-08-12, though the app compiled and launched under XCTest | Jake |
 | Vector logo for print/NFC labels | Jake |
 
 ## Open / undecided

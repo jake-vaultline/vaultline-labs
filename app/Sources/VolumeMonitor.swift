@@ -49,6 +49,80 @@ struct VolumeSnapshot: Codable {
     var folders: [String: String]
     /// relative path → size, for top-level entries only (used to describe changes)
     var topLevel: [String: Int64]
+    /// Asset-bearing folders selected by the user's Relay scan rule. Optional
+    /// so snapshots from older app versions remain readable.
+    var collections: [String: ScannedCollection]? = nil
+}
+
+/// A bounded inventory for one tracked folder. This is intentionally not a
+/// content checksum: it compares relative paths and sizes without reading every
+/// media byte. Ingest verification remains the authority for byte identity.
+struct ScannedCollection: Codable, Equatable {
+    var relativePath: String
+    var name: String
+    var fileCount: Int
+    var totalBytes: Int64
+    var inventoryFingerprint: String
+}
+
+struct DriveCopyFinding: Identifiable {
+    enum Health: Equatable {
+        case singleCopy, discrepancy, matchingCopies
+    }
+
+    struct Copy: Identifiable {
+        var id: String { volumeID + "::" + relativePath }
+        let volumeID: String
+        let volumeName: String
+        let relativePath: String
+        let fileCount: Int
+        let totalBytes: Int64
+        let fingerprint: String
+    }
+
+    var id: String { name.folding(options: [.caseInsensitive], locale: .current) }
+    let name: String
+    let copies: [Copy]
+    let health: Health
+}
+
+enum DriveCopyAnalyzer {
+    static func findings(in volumes: [KnownVolume]) -> [DriveCopyFinding] {
+        var grouped: [String: (name: String, copies: [DriveCopyFinding.Copy])] = [:]
+        for volume in volumes {
+            for collection in (volume.snapshot?.collections ?? [:]).values {
+                let key = collection.name.folding(
+                    options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+                let copy = DriveCopyFinding.Copy(
+                    volumeID: volume.id, volumeName: volume.name,
+                    relativePath: collection.relativePath,
+                    fileCount: collection.fileCount, totalBytes: collection.totalBytes,
+                    fingerprint: collection.inventoryFingerprint)
+                grouped[key, default: (collection.name, [])].copies.append(copy)
+            }
+        }
+
+        return grouped.values.map { item in
+            let fingerprints = Set(item.copies.map(\.fingerprint))
+            let health: DriveCopyFinding.Health
+            if item.copies.count == 1 { health = .singleCopy }
+            else if fingerprints.count == 1 { health = .matchingCopies }
+            else { health = .discrepancy }
+            return DriveCopyFinding(
+                name: item.name,
+                copies: item.copies.sorted { ($0.volumeName, $0.relativePath) < ($1.volumeName, $1.relativePath) },
+                health: health)
+        }.sorted { lhs, rhs in
+            func rank(_ health: DriveCopyFinding.Health) -> Int {
+                switch health {
+                case .discrepancy: return 0
+                case .singleCopy: return 1
+                case .matchingCopies: return 2
+                }
+            }
+            return (rank(lhs.health), lhs.name) < (rank(rhs.health), rhs.name)
+        }
+    }
 }
 
 struct VolumeChange: Codable {
@@ -94,6 +168,9 @@ final class VolumeMonitor: ObservableObject {
     @Published private(set) var volumes: [KnownVolume] = []
     @Published private(set) var scanning: Set<String> = []
 
+    private var scanRules: DriveScanRules
+    var onScanCompleted: ((KnownVolume) -> Void)?
+
     /// Skip system and network volumes — the registry is about media drives.
     private let skipPaths = ["/", "/System/Volumes/Data", "/private/var/vm"]
 
@@ -106,7 +183,8 @@ final class VolumeMonitor: ObservableObject {
 
     private var observers: [NSObjectProtocol] = []
 
-    init() {
+    init(rules: DriveScanRules = DriveScanRules()) {
+        scanRules = rules
         load()
         let nc = NSWorkspace.shared.notificationCenter
         // Hold the tokens — a block observer whose token is discarded can be
@@ -133,10 +211,13 @@ final class VolumeMonitor: ObservableObject {
 
     private func didMount(_ url: URL) {
         guard let v = describe(url) else { return }
-        // Scanning is opt-in per drive. Auto-reading every disk somebody plugs
-        // in — including a client's drive they only meant to eject — would be a
-        // surprising thing for a tool to do unasked.
         upsert(v)
+        // Automatic reading remains an explicit setting. A paired Media Nexus
+        // can manage the same config so a team's Relay clients behave alike.
+        if scanRules.automaticOnMount,
+           let mounted = volumes.first(where: { $0.id == v.id }) {
+            scan(mounted)
+        }
     }
 
     private func didUnmount(_ url: URL) {
@@ -154,6 +235,10 @@ final class VolumeMonitor: ObservableObject {
             if let v = describe(url) { upsert(v) }
         }
         save()
+    }
+
+    func updateScanRules(_ rules: DriveScanRules) {
+        scanRules = rules
     }
 
     private func describe(_ url: URL) -> KnownVolume? {
@@ -209,9 +294,10 @@ final class VolumeMonitor: ObservableObject {
         let path = volume.lastPath
         let previous = volume.snapshot
         let id = volume.id
+        let rules = scanRules
 
         Task.detached(priority: .utility) {
-            let snap = VolumeScanner.snapshot(of: URL(fileURLWithPath: path))
+            let snap = VolumeScanner.snapshot(of: URL(fileURLWithPath: path), rules: rules)
             let change = previous.map { VolumeScanner.diff(from: $0, to: snap) }
             await MainActor.run {
                 if let i = self.volumes.firstIndex(where: { $0.id == id }) {
@@ -220,6 +306,9 @@ final class VolumeMonitor: ObservableObject {
                 }
                 self.scanning.remove(id)
                 self.save()
+                if let completed = self.volumes.first(where: { $0.id == id }) {
+                    self.onScanCompleted?(completed)
+                }
             }
         }
     }
@@ -261,11 +350,15 @@ enum VolumeScanner {
     /// per drive per scan, and the registry would outgrow the media it describes.
     /// Hashing (name, size, mtime) per folder catches every practical change —
     /// files added, removed, resized, replaced — at a fraction of the size.
-    static func snapshot(of root: URL) -> VolumeSnapshot {
+    static func snapshot(of root: URL, rules: DriveScanRules = DriveScanRules()) -> VolumeSnapshot {
         var folders: [String: [UInt64]] = [:]
         var topLevel: [String: Int64] = [:]
+        var collections: [String: CollectionAccumulator] = [:]
         var fileCount = 0
         var totalBytes: Int64 = 0
+        let collectionPattern = rules.trimmedPattern
+        let collectionRegex = collectionPattern.isEmpty ? nil : try? NSRegularExpression(
+            pattern: collectionPattern, options: [.caseInsensitive])
         // FileManager may return canonical `/private/var/...` URLs while the
         // caller supplied the `/var/...` symlink. Canonicalize both the
         // enumeration root and prefix or relative paths become accidentally
@@ -310,6 +403,27 @@ enum VolumeScanner {
                     let top = String(firstComponent)
                     topLevel[top, default: 0] += size
                 }
+
+                let components = rel.split(separator: "/").map(String.init)
+                guard components.count > 1 else { continue }
+                let directoryComponents = Array(components.dropLast())
+                for collectionPath in matchingCollectionPaths(
+                    directoryComponents: directoryComponents,
+                    patternIsEmpty: collectionPattern.isEmpty,
+                    regex: collectionRegex) {
+                    let prefixCount = collectionPath.split(separator: "/").count
+                    let within = components.dropFirst(prefixCount).joined(separator: "/")
+                    var itemHash: UInt64 = 14695981039346656037
+                    for b in within.utf8 {
+                        itemHash = (itemHash ^ UInt64(b)) &* 1099511628211
+                    }
+                    itemHash = (itemHash ^ UInt64(bitPattern: size)) &* 1099511628211
+                    var item = collections[collectionPath] ?? CollectionAccumulator()
+                    item.fileCount += 1
+                    item.totalBytes += size
+                    item.hashes.append(itemHash)
+                    collections[collectionPath] = item
+                }
             }
         }
 
@@ -322,8 +436,49 @@ enum VolumeScanner {
             digests[dir] = String(format: "%016llx-%d", folded, hashes.count)
         }
 
+        var scannedCollections: [String: ScannedCollection] = [:]
+        for (path, accumulator) in collections {
+            var folded: UInt64 = 14695981039346656037
+            for hash in accumulator.hashes.sorted() {
+                folded = (folded ^ hash) &* 1099511628211
+            }
+            scannedCollections[path] = ScannedCollection(
+                relativePath: path,
+                name: (path as NSString).lastPathComponent,
+                fileCount: accumulator.fileCount,
+                totalBytes: accumulator.totalBytes,
+                inventoryFingerprint: String(format: "%016llx-%d", folded, accumulator.fileCount))
+        }
+
         return VolumeSnapshot(takenAt: Date(), fileCount: fileCount,
-                              totalBytes: totalBytes, folders: digests, topLevel: topLevel)
+                              totalBytes: totalBytes, folders: digests, topLevel: topLevel,
+                              collections: scannedCollections)
+    }
+
+    private struct CollectionAccumulator {
+        var fileCount = 0
+        var totalBytes: Int64 = 0
+        var hashes: [UInt64] = []
+    }
+
+    private static func matchingCollectionPaths(
+        directoryComponents: [String], patternIsEmpty: Bool,
+        regex: NSRegularExpression?
+    ) -> [String] {
+        if patternIsEmpty {
+            return directoryComponents.first.map { [$0] } ?? []
+        }
+        guard let regex else { return [] }
+
+        var matches: [String] = []
+        for index in directoryComponents.indices {
+            let name = directoryComponents[index]
+            let range = NSRange(name.startIndex..<name.endIndex, in: name)
+            if regex.firstMatch(in: name, range: range)?.range == range {
+                matches.append(directoryComponents[...index].joined(separator: "/"))
+            }
+        }
+        return matches
     }
 
     private static func canonicalURL(_ url: URL) -> URL {

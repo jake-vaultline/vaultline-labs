@@ -1,6 +1,6 @@
 # Vaultline Ingest — Architecture Spec
 
-**Status: SPECCED 2026-08-07. Core engine written, UI not started.**
+**Status: IMPLEMENTED, RELEASE CANDIDATE BUILT. Active development.**
 
 ---
 
@@ -92,10 +92,12 @@ Anything that conflicts with these loses, including speed.
 Revised 2026-08-07. It isn't only an offloader.
 
 **Drives** — the standing view, useful on a day nobody is ingesting anything.
-Every drive this Mac has seen, when it was last plugged in, and **what changed since
-the time before**. Scanning is explicit per drive, never automatic on mount: silently
-reading every disk somebody inserts — including a client's drive they only meant to
-eject — is a surprising thing for a tool to do unasked.
+Every drive this Mac has seen, when it was last plugged in, **what changed since
+the time before**, and whether named collections appear on one drive, matching drives,
+or discrepant drives. Scanning is manual by default. A user or managed Media Nexus
+configuration can opt into scan-on-mount and restrict collection tracking with a
+folder-name regular expression. This preserves a non-surprising standalone default
+while allowing a Relay workstation to follow team rules whenever the app is open.
 
 **Ingest** — the offload pipeline in §4.
 
@@ -119,6 +121,11 @@ pairing turns "the drives I've plugged in" into "the drives we own".
 
 The Drives view says this in plain language rather than letting someone assume
 otherwise and discover it during a crisis.
+
+Within one Mac, the app compares tracked folders across every retained drive snapshot.
+This is a fast inventory comparison over relative paths and sizes, not a content
+checksum. It may say that inventories match; only the Ingest read-back checksum is
+allowed to say that a copy is verified.
 
 ### Overlap with Drive Inspector — resolved by sequencing, not by argument
 
@@ -248,6 +255,11 @@ per-file hashes. Plain text because it survives every migration, opens anywhere,
 readable in fifty years, and gets indexed by Spotlight and Vaultline alike. A database
 row is gone the day the app is uninstalled.
 
+When paired, non-empty answers are also included in the ingest event as metadata with
+stable field IDs, labels, kinds, and values. That lets Archive and other Media Nexus
+modules use the context without hardcoding a client's form schema. The local sidecar is
+still written and remains the durable standalone record.
+
 Fields marked *sticky* carry to the next card; the rest clear. Retyping the production
 name eleven times is how forms stop getting filled in.
 
@@ -289,7 +301,7 @@ Only active when paired. Everything is push-from-client; the server never reache
 
 | Direction | What moves |
 |---|---|
-| **client → nexus** | Ingest events (source, destinations, file list, checksums, verified status, operator, timestamps) · volume registry (mounted drives, capacity, identifiers) · scan summaries |
+| **client → nexus** | Ingest events (source, destinations, file list, checksums, verified status, operator, timestamps) · volume registry (capacity and identifiers) · tracked-folder scan summaries and inventory fingerprints |
 | **nexus → client** | Config (naming, destinations, workflow) · drive registry names so a card reads as "NS-024" not "Untitled" |
 
 **Never sent:** media. Only metadata and checksums. The app has no upload path for

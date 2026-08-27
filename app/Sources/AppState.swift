@@ -23,10 +23,11 @@ final class AppState: ObservableObject {
     /// Forwarding each child's `objectWillChange` is the fix. Every child must
     /// be listed here; adding one and forgetting this is a silent, confusing bug.
     init() {
-        configStore = ConfigStore()
+        let loadedConfig = ConfigStore()
+        configStore = loadedConfig
         nexus = NexusClient()
         passports = DrivePassportClient(log: nexus.log)
-        volumes = VolumeMonitor()
+        volumes = VolumeMonitor(rules: loadedConfig.config.effectiveDriveScanRules)
 
         for child in [
             configStore.objectWillChange.eraseToAnyPublisher(),
@@ -51,6 +52,18 @@ final class AppState: ObservableObject {
                     state: event.tagPaired ? "paired" : "synced")
             }
             .store(in: &bag)
+
+        configStore.$config
+            .map(\.effectiveDriveScanRules)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] rules in self?.volumes.updateScanRules(rules) }
+            .store(in: &bag)
+
+        volumes.onScanCompleted = { [weak self] volume in
+            guard let self, self.config.nexus.isPaired else { return }
+            Task { await self.reportScannedVolume(volume) }
+        }
     }
 
     /// Which half of the app is on screen. Drives is the standing view — the
@@ -126,6 +139,38 @@ final class AppState: ObservableObject {
     }
 
     var plannedBytes: Int64 { plan.reduce(0) { $0 + $1.size } }
+
+    var copyFindings: [DriveCopyFinding] {
+        DriveCopyAnalyzer.findings(in: volumes.volumes)
+    }
+
+    private func reportScannedVolume(_ volume: KnownVolume) async {
+        guard let snapshot = volume.snapshot else { return }
+        let collections = (snapshot.collections ?? [:]).values.map { collection in
+            [
+                "name": collection.name,
+                "relativePath": collection.relativePath,
+                "fileCount": collection.fileCount,
+                "totalBytes": collection.totalBytes,
+                "inventoryFingerprint": collection.inventoryFingerprint,
+            ] as [String: Any]
+        }
+        let payload: [String: Any] = [
+            "volumeID": volume.id,
+            "volumeUUID": volume.volumeUUID ?? NSNull(),
+            "name": volume.name,
+            "totalBytes": volume.totalBytes,
+            "freeBytes": volume.freeBytes,
+            "scannedAt": ISO8601DateFormatter().string(from: snapshot.takenAt),
+            "fileCount": snapshot.fileCount,
+            "collections": collections,
+        ]
+        do {
+            try await nexus.reportVolumes(config.nexus, volumes: [payload])
+        } catch {
+            message = "Drive scan stayed local; Media Nexus sync failed: \(error.localizedDescription)"
+        }
+    }
 
     // MARK: Source
 
@@ -248,6 +293,13 @@ final class AppState: ObservableObject {
             // it outlives this app, and it's the thing someone actually reads
             // when they find the drive in three years.
             let form = self.config.form
+            let ingestContext = form.fields.compactMap { field -> NexusClient.IngestContextValue? in
+                let value = (self.formAnswers[field.id] ?? field.defaultValue)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !value.isEmpty else { return nil }
+                return NexusClient.IngestContextValue(
+                    fieldID: field.id, label: field.label, kind: field.kind, value: value)
+            }
             if form.enabled && form.writeSidecar {
                 let body = IngestSidecar.text(
                     fields: form.fields, answers: self.formAnswers,
@@ -266,7 +318,8 @@ final class AppState: ObservableObject {
                 try? await self.nexus.reportIngest(self.config.nexus,
                                                    sourceName: sourceName,
                                                    files: finished,
-                                                   destinations: usable)
+                                                   destinations: usable,
+                                                   context: form.enabled ? ingestContext : [])
             }
 
             self.scopes.releaseAll()
@@ -310,7 +363,8 @@ final class AppState: ObservableObject {
     var missingRequired: [IngestFormField] {
         guard config.form.enabled else { return [] }
         return config.form.fields.filter {
-            $0.required && (formAnswers[$0.id] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+            $0.required && (formAnswers[$0.id] ?? $0.defaultValue)
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 

@@ -5,12 +5,13 @@ struct SettingsView: View {
     @State private var tab: Tab = .workflow
 
     enum Tab: String, CaseIterable, Identifiable {
-        case workflow, form, passport, nexus, network
+        case workflow, form, driveScans, passport, nexus, network
         var id: String { rawValue }
         var title: String {
             switch self {
             case .workflow: return "Workflow"
             case .form:     return "Shoot Form"
+            case .driveScans: return "Drive Scans"
             case .passport: return "Drive Passports"
             case .nexus:    return "Media Nexus"
             case .network:  return "Network"
@@ -37,6 +38,7 @@ struct SettingsView: View {
                     switch tab {
                     case .workflow: WorkflowSettings()
                     case .form:     FormEditor()
+                    case .driveScans: DriveScanSettings()
                     case .passport: PassportSettings()
                     case .nexus:    NexusSettings()
                     case .network:  NetworkPanel()
@@ -50,6 +52,73 @@ struct SettingsView: View {
         .vlWindowBackground()
         .foregroundStyle(VL.ink)
         .environmentObject(state)
+    }
+}
+
+// MARK: - Drive scans / Relay
+
+private struct DriveScanSettings: View {
+    @EnvironmentObject private var state: AppState
+
+    private var locked: Bool { state.config.isManaged }
+    private var rules: DriveScanRules { state.config.effectiveDriveScanRules }
+
+    var body: some View {
+        if locked {
+            Panel {
+                HStack(spacing: VL.Space.s) {
+                    Image(systemName: "lock").foregroundStyle(VL.blue).font(.system(size: 12))
+                    Text("These scan rules come from your Media Nexus and can't be edited here.")
+                        .font(VL.small).foregroundStyle(VL.inkDim)
+                }
+            }
+        }
+
+        VStack(alignment: .leading, spacing: VL.Space.s) {
+            SectionLabel("Folders to track")
+            Text("Enter a regular expression that matches the complete folder name carrying your job or asset identity.")
+                .font(VL.body).foregroundStyle(VL.inkDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("", text: Binding(
+                get: { rules.folderNamePattern },
+                set: { value in state.configStore.update {
+                    var next = $0.effectiveDriveScanRules
+                    next.folderNamePattern = value
+                    $0.driveScanRules = next
+                } }),
+                prompt: Text("Example: ^JOB-[0-9]{4}$").foregroundColor(VL.inkFaint))
+                .textFieldStyle(VLFieldStyle())
+                .font(VL.mono)
+                .disabled(locked)
+                .frame(maxWidth: 420)
+
+            if !rules.patternIsValid {
+                Text("That regular expression isn't valid. Scans will track no folders until it is fixed.")
+                    .font(VL.small).foregroundStyle(VL.amber)
+            } else if rules.trimmedPattern.isEmpty {
+                Text("No pattern set — each top-level folder is treated as a tracked collection.")
+                    .font(VL.small).foregroundStyle(VL.inkFaint)
+            }
+        }
+
+        VStack(alignment: .leading, spacing: VL.Space.s) {
+            SectionLabel("When a drive is connected")
+            Toggle("Scan matching folders automatically", isOn: Binding(
+                get: { rules.automaticOnMount },
+                set: { value in state.configStore.update {
+                    var next = $0.effectiveDriveScanRules
+                    next.automaticOnMount = value
+                    $0.driveScanRules = next
+                } }))
+                .toggleStyle(.checkbox).font(VL.body).disabled(locked || !rules.patternIsValid)
+
+            Panel(tint: VL.slate) {
+                Text("Automatic scanning is opt-in because it reads directory metadata from every matching drive. It never reads media contents, moves files, or deletes anything. When connected to Media Nexus, only the resulting inventory metadata is reported — never media.")
+                    .font(VL.small).foregroundStyle(VL.inkDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

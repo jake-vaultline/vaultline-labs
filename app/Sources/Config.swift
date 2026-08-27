@@ -20,6 +20,10 @@ struct IngestConfig: Codable {
     var checksum: ChecksumAlgorithm = .xxhash64
     var workflow = WorkflowConfig()
     var form = IngestFormConfig()
+    /// Optional for backward compatibility with config files written before
+    /// drive scan rules existed. The effective value is deliberately local and
+    /// conservative: scan manually unless the user or Media Nexus opts in.
+    var driveScanRules: DriveScanRules?
     var nexus = NexusConfig()
     /// Separate hosted metadata projection for Drive Passports. Optional so
     /// existing config.json files written before Drive Tags continue to decode.
@@ -28,6 +32,26 @@ struct IngestConfig: Codable {
     /// True when the config came from a server and the UI should say so rather
     /// than letting someone edit a field that will silently revert.
     var isManaged: Bool { source == .nexus }
+
+    var effectiveDriveScanRules: DriveScanRules { driveScanRules ?? DriveScanRules() }
+}
+
+/// Rules for the Relay half of the app. A pattern scopes collection tracking to
+/// folders that carry a team's asset identity (for example `^JOB-[0-9]{4}$`).
+/// It is a regular expression over the folder name, not its machine-specific
+/// absolute path.
+struct DriveScanRules: Codable, Equatable {
+    var folderNamePattern = ""
+    var automaticOnMount = false
+
+    var trimmedPattern: String {
+        folderNamePattern.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var patternIsValid: Bool {
+        trimmedPattern.isEmpty || (try? NSRegularExpression(
+            pattern: trimmedPattern, options: [.caseInsensitive])) != nil
+    }
 }
 
 struct NamingConfig: Codable {

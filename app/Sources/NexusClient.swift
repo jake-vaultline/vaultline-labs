@@ -75,12 +75,20 @@ final class NexusClient: ObservableObject {
 
     // MARK: Push
 
+    struct IngestContextValue {
+        let fieldID: UUID
+        let label: String
+        let kind: IngestFormField.Kind
+        let value: String
+    }
+
     /// Reports a finished ingest: what came in, where it went, and the checksum
     /// of every verified file. No media.
     func reportIngest(_ nexus: NexusConfig,
                       sourceName: String,
                       files: [IngestFile],
-                      destinations: [Destination]) async throws {
+                      destinations: [Destination],
+                      context: [IngestContextValue]) async throws {
         let payload: [String: Any] = [
             "sourceName": sourceName,
             "completedAt": ISO8601DateFormatter().string(from: Date()),
@@ -91,7 +99,14 @@ final class NexusClient: ObservableObject {
                 guard !verified.isEmpty else { return nil }
                 return ["path": f.relativePath, "size": f.size,
                         "hash": hash, "verifiedAt": verified]
-            }
+            },
+            // User-configured ingest context is metadata, never media. Stable
+            // field IDs let Archive map renamed labels without hardcoding one
+            // team's form into this client.
+            "context": context.map {
+                ["fieldID": $0.fieldID.uuidString, "label": $0.label,
+                 "kind": $0.kind.rawValue, "value": $0.value]
+            },
         ]
         let _: Empty = try await send(urlString: nexus.url, path: "/api/relay/ingest",
                                       method: "POST", token: token(for: nexus.url),
