@@ -213,7 +213,6 @@ struct SetupWizard: View {
                 cfg.naming.folderTemplate = folder.template
             }
         }
-        state.replan()
         dismiss()
     }
 }

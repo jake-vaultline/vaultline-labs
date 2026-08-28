@@ -156,15 +156,22 @@ private struct SourceBlock: View {
             Text(state.sourceURL?.lastPathComponent ?? "")
                 .font(VL.display(20))
 
-            Text("\(F.quantity(state.plan.count, singular: "file")) · \(F.bytes(state.plannedBytes))")
-                .font(VL.body).foregroundStyle(VL.inkDim).monospacedDigit()
+            if state.isPlanningSource {
+                HStack(spacing: VL.Space.s) {
+                    ProgressView().controlSize(.small)
+                    Text("Scanning card…")
+                        .font(VL.body).foregroundStyle(VL.inkDim)
+                }
+            } else {
+                Text("\(F.quantity(state.plan.count, singular: "file")) · \(F.bytes(state.plannedBytes))")
+                    .font(VL.body).foregroundStyle(VL.inkDim).monospacedDigit()
+            }
 
             if !state.config.naming.fileTemplate.isEmpty {
                 Toggle(isOn: Binding(
                     get: { state.config.naming.renameOnIngest },
                     set: { v in
                         state.configStore.update { $0.naming.renameOnIngest = v }
-                        state.replan()
                     })
                 ) {
                     HStack(spacing: 6) {
@@ -174,7 +181,7 @@ private struct SourceBlock: View {
                     }
                 }
                 .toggleStyle(.checkbox)
-                .disabled(state.isRunning || state.config.isManaged)
+                .disabled(state.isRunning || state.isPlanningSource || state.config.isManaged)
                 .padding(.top, VL.Space.xs)
             }
         }
@@ -459,7 +466,13 @@ private struct ActionBar: View {
         HStack(spacing: VL.Space.m) {
             // A disabled button with no explanation is the most common way an
             // app feels broken. Say what's missing.
-            if let blocked = state.blockedReason, state.progress.phase == .planning {
+            if state.isPlanningSource {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Scanning the source without blocking the app…")
+                        .font(VL.small).foregroundStyle(VL.inkDim)
+                }
+            } else if let blocked = state.blockedReason, state.progress.phase == .planning {
                 HStack(spacing: 6) {
                     Circle().fill(VL.amber).frame(width: 4, height: 4)
                     Text(blocked).font(VL.small).foregroundStyle(VL.inkDim)

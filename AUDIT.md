@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 40 of 40 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 41 of 41 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -41,22 +41,24 @@ update checker, or network client. The app sandbox has no network client or serv
   outcomes, without mislabeling output failures as media-verification failures; and
 - change detection across every persisted naming property used to invalidate and rebuild an active
   source plan after a team-configuration import or naming edit; and
-- natural singular and plural result grammar for one-file and multi-file completed runs.
+- natural singular and plural result grammar for one-file and multi-file completed runs; and
+- cancellable source discovery with no partial-plan publication, while the packaged app performs
+  the filesystem walk and deterministic sort outside the UI actor.
 
 ## Build evidence
 
-The 0.3.0 build 11 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 13 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 11.app`
+`/Applications/Vaultline Ingest 0.3 Review 13.app`
 
 Review DMG SHA-256:
 
-`27a0812387b2a94a701f14bbf3c472b97a2c8625584bd37ab576837d40ca0b24`
+`9c9ec8d98534939d8c3538d40f85c18048ab184717543625a85ae64f7a106da1`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -116,12 +118,19 @@ camera-card and writable ExFAT destination images:
     immediately removed the rename preview. A subsequent full-card run verified all three existing
     files without rewriting them; after quit/relaunch, the configured carry-over brief restored
     `Jordan Lee`, `Portland Studio`, `Launch Film B`, and `Sony FX6` under the active form schema.
+18. The exact build 13 package visibly scanned a synthetic 500,000-file card without blocking the
+    main window. It showed `Scanning card…` and `Scanning the source without blocking the app…`,
+    kept `Change` available, and disabled Start and rename changes until the plan was complete.
+    Choosing `Change` cancelled the obsolete scan immediately: the app process dropped from full
+    CPU to idle while the system picker remained open. Selecting a two-file replacement source
+    published exactly `2 files · Zero KB`; after the original scan would otherwise still have been
+    running, the UI remained on that replacement plan and never published a partial or stale result.
 
 ## Clean-Mac package exercise
 
-The exact build 11 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 13 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 11, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 13, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.

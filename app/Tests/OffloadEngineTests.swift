@@ -69,6 +69,29 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertEqual(files.map(\.relativePath), ["PRIVATE/M4ROOT/.MEDIAPRO.XML"])
     }
 
+    func testPlannerCooperativelyCancelsWithoutPublishingAPartialPlan() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("CARD", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        for index in 0..<20 {
+            try Data("clip-\(index)".utf8).write(
+                to: source.appendingPathComponent("A\(index).mov"))
+        }
+
+        var checks = 0
+        let plan = OffloadEngine.planCancellable(
+            source: source,
+            naming: NamingConfig(),
+            shouldContinue: {
+                checks += 1
+                return checks < 5
+            })
+
+        XCTAssertNil(plan)
+        XCTAssertLessThan(checks, 20)
+    }
+
     func testCapacityPreflightCountsOnlyMissingFilesAndBlocksEveryDestinationUpFront() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

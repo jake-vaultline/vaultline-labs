@@ -74,12 +74,15 @@ final class AppState: ObservableObject {
     @Published var plan: [IngestFile] = []
     @Published var progress = OffloadProgress()
     @Published var results: [IngestFile] = []
+    @Published private(set) var isPlanningSource = false
     @Published var isRunning = false
     @Published var message: String?
 
     private let engine = OffloadEngine()
     private var scopes = ScopeHolder()
     private var task: Task<Void, Never>?
+    private var sourcePlanningTask: Task<Void, Never>?
+    private var sourcePlanGeneration = UUID()
 
     var config: IngestConfig { configStore.config }
 
@@ -90,7 +93,7 @@ final class AppState: ObservableObject {
     }
 
     var canStart: Bool {
-        sourceURL != nil && !plan.isEmpty && !destinations.isEmpty
+        sourceURL != nil && !isPlanningSource && !plan.isEmpty && !destinations.isEmpty
             && !isRunning && missingRequired.isEmpty && invalidFields.isEmpty
             && unsafeDestinationReason == nil && unsafePlanReason == nil
     }
@@ -100,6 +103,7 @@ final class AppState: ObservableObject {
     var blockedReason: String? {
         if isRunning { return nil }
         if sourceURL == nil { return "Choose a card or folder to ingest." }
+        if isPlanningSource { return "Scanning the source…" }
         if plan.isEmpty { return "Nothing to ingest in that folder." }
         if destinations.isEmpty { return "Add at least one destination." }
         if let f = missingRequired.first {
@@ -120,13 +124,27 @@ final class AppState: ObservableObject {
     // MARK: Source
 
     func chooseSource() {
+        // A huge card can still be discovering files when the operator decides
+        // to choose a different source. Stop that work before opening the
+        // system picker; otherwise the obsolete scan needlessly competes with
+        // the picker for CPU until a replacement folder is finally selected.
+        let shouldResumeCurrentPlan = isPlanningSource
+        if shouldResumeCurrentPlan {
+            cancelSourcePlan()
+        }
+
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.prompt = "Select"
         panel.message = "Choose the card or folder to ingest"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            if shouldResumeCurrentPlan, let sourceURL {
+                beginSourcePlan(sourceURL)
+            }
+            return
+        }
         setSource(url)
     }
 
@@ -135,15 +153,45 @@ final class AppState: ObservableObject {
         sourceURL = url
         results = []
         progress = OffloadProgress()
-        plan = OffloadEngine.plan(source: url, naming: config.naming)
-        message = plan.isEmpty ? "Nothing to ingest in that folder." : nil
+        beginSourcePlan(url)
     }
 
     /// Recompute the plan when naming changes, so the preview always matches
     /// what will actually be written.
     func replan() {
-        guard let url = sourceURL else { return }
-        plan = OffloadEngine.plan(source: url, naming: config.naming)
+        guard let url = sourceURL, !isRunning else { return }
+        beginSourcePlan(url)
+    }
+
+    private func beginSourcePlan(_ url: URL) {
+        cancelSourcePlan()
+        let generation = sourcePlanGeneration
+        let naming = config.naming
+
+        isPlanningSource = true
+        plan = []
+        message = nil
+
+        sourcePlanningTask = Task { [weak self] in
+            let planned = await SourcePlanner.plan(source: url, naming: naming)
+            guard let self,
+                  !Task.isCancelled,
+                  self.sourcePlanGeneration == generation,
+                  self.sourceURL?.standardizedFileURL == url.standardizedFileURL else { return }
+
+            self.isPlanningSource = false
+            self.sourcePlanningTask = nil
+            guard let planned else { return }
+            self.plan = planned
+            self.message = planned.isEmpty ? "Nothing to ingest in that folder." : nil
+        }
+    }
+
+    private func cancelSourcePlan() {
+        sourcePlanningTask?.cancel()
+        sourcePlanningTask = nil
+        sourcePlanGeneration = UUID()
+        isPlanningSource = false
     }
 
     /// A struct, not a labelled tuple — Swift has no key paths into tuple
@@ -161,6 +209,7 @@ final class AppState: ObservableObject {
     /// Clears the last card without touching destinations or settings — the
     /// common case is another card into the same job.
     func reset() {
+        cancelSourcePlan()
         sourceURL = nil
         plan = []
         results = []

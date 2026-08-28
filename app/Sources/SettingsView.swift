@@ -201,7 +201,7 @@ private struct WorkflowSettings: View {
 
             TextField("", text: Binding(
                 get: { state.config.naming.projectCode },
-                set: { v in state.configStore.update { $0.naming.projectCode = v }; state.replan() }),
+                set: { v in state.configStore.update { $0.naming.projectCode = v } }),
                 prompt: Text("Project code — fills {code}").foregroundColor(VL.inkFaint))
                 .textFieldStyle(VLFieldStyle())
                 .disabled(locked)

@@ -566,6 +566,18 @@ actor OffloadEngine {
     /// exactly what their files will be called *before* anything is written.
     /// Discovering a rename after the fact is how people lose track of footage.
     nonisolated static func plan(source: URL, naming: NamingConfig) -> [IngestFile] {
+        planCancellable(source: source, naming: naming, shouldContinue: { true }) ?? []
+    }
+
+    /// The same deterministic planner with a cooperative cancellation seam.
+    /// Large cards can contain tens of thousands of filesystem entries; the
+    /// app runs this off the main actor and abandons obsolete scans when the
+    /// operator changes cards or naming rules.
+    nonisolated static func planCancellable(
+        source: URL,
+        naming: NamingConfig,
+        shouldContinue: () -> Bool
+    ) -> [IngestFile]? {
         let skippedFiles: Set<String> = [".ds_store", "thumbs.db"]
         let skippedDirectories: Set<String> = [
             ".spotlight-v100", ".fseventsd", ".trashes", ".temporaryitems"
@@ -579,6 +591,7 @@ actor OffloadEngine {
         guard let e = FileManager.default.enumerator(atPath: root.path) else { return [] }
 
         for case let relative as String in e {
+            guard shouldContinue() else { return nil }
             let url = root.appendingPathComponent(relative)
             guard let v = try? url.resourceValues(
                 forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
@@ -603,6 +616,7 @@ actor OffloadEngine {
 
         // Stable order so sequence numbers are reproducible across re-runs —
         // otherwise resuming an interrupted card would rename everything.
+        guard shouldContinue() else { return nil }
         raw.sort { $0.rel < $1.rel }
 
         let renaming = naming.renameOnIngest && !naming.fileTemplate.isEmpty
@@ -610,7 +624,10 @@ actor OffloadEngine {
         values.code = naming.projectCode
         values.reel = source.lastPathComponent
 
-        return raw.enumerated().map { i, f in
+        var planned: [IngestFile] = []
+        planned.reserveCapacity(raw.count)
+        for (i, f) in raw.enumerated() {
+            guard shouldContinue() else { return nil }
             let dest = renaming
                 ? NameTemplate.destinationPath(fileTemplate: naming.fileTemplate,
                                                folderTemplate: naming.folderTemplate,
@@ -618,10 +635,28 @@ actor OffloadEngine {
                                                values: values,
                                                index: i + 1)
                 : f.rel
-            return IngestFile(sourcePath: f.path,
-                              relativePath: f.rel,
-                              destinationRelativePath: dest,
-                              size: f.size)
+            planned.append(IngestFile(sourcePath: f.path,
+                                      relativePath: f.rel,
+                                      destinationRelativePath: dest,
+                                      size: f.size))
         }
+        return planned
+    }
+}
+
+/// Runs card discovery outside the UI actor while propagating cancellation to
+/// the detached filesystem walk. `nil` means the scan was deliberately
+/// superseded; an empty array means the selected source contained no media.
+enum SourcePlanner {
+    static func plan(source: URL, naming: NamingConfig) async -> [IngestFile]? {
+        let worker = Task.detached(priority: .userInitiated) {
+            OffloadEngine.planCancellable(
+                source: source,
+                naming: naming,
+                shouldContinue: { !Task.isCancelled })
+        }
+        return await withTaskCancellationHandler(
+            operation: { await worker.value },
+            onCancel: { worker.cancel() })
     }
 }
