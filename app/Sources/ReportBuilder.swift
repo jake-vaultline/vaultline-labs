@@ -378,7 +378,7 @@ enum ReportBuilder {
     }
 
     static var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.2"
     }
 
     /// Inlines a bundled PNG as a data URL. A report that renders a broken image

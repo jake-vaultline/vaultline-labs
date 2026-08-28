@@ -79,7 +79,8 @@ struct ContentView: View {
 
             // The report is what actually travels — see report/report-spec.md.
             Menu("Export Report") {
-                ForEach(Exporter.Format.allCases) { fmt in
+                // `offered`, not `allCases` — see Exporter.Format.offered.
+                ForEach(Exporter.Format.offered) { fmt in
                     Button(fmt.label) { export(fmt) }
                 }
             }

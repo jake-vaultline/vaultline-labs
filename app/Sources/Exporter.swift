@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import WebKit
+import PDFKit
 import UniformTypeIdentifiers
 
 /// Saves the report. Three formats, one source of truth: the HTML is generated
@@ -12,10 +13,30 @@ enum Exporter {
         case html, pdf, csv
         var id: String { rawValue }
 
+        /// What the export menu offers.
+        ///
+        /// PDF is deliberately absent. `pdf(from:)` reliably fails to return on
+        /// a real drive report inside the sandboxed release build: the app sits
+        /// idle, the WebContent process sits idle, no error is raised, and even
+        /// an explicit 90-second timeout around it does not fire. It works in
+        /// the test bundle, so it is something about the shipped, sandboxed
+        /// context, and it is not understood yet. A menu item that permanently
+        /// disables the export button is worse than one that is not there.
+        ///
+        /// Nothing is lost that a user cannot get in one step: the HTML is a
+        /// single self-contained file, and Print to PDF from any browser
+        /// paginates it properly through the browser's own print engine, which
+        /// honours the `@media print` rules the stylesheet already carries.
+        /// That is a better PDF than this app was producing.
+        ///
+        /// Tracked as VLP-496. The code stays, with its tests, so restoring the
+        /// menu item is a one-line change once the hang is understood.
+        static var offered: [Format] { [.html, .csv] }
+
         var label: String {
             switch self {
-            case .html: return "HTML · one file, opens anywhere"
-            case .pdf:  return "PDF · for email and print"
+            case .html: return "HTML · one file, opens anywhere, prints to PDF from any browser"
+            case .pdf:  return "PDF"
             case .csv:  return "CSV · every file and every finding, for your own analysis"
             }
         }
@@ -46,7 +67,9 @@ enum Exporter {
             try csv(from: snapshot, inventory: inventory)
                 .write(to: url, atomically: true, encoding: .utf8)
         case .pdf:
-            let data = try await pdf(from: ReportBuilder.html(from: snapshot))
+            // `pdfData`, not `pdf`: the timeout lives in the wrapper, and the
+            // export button must never be left disabled by a stalled render.
+            let data = try await pdfData(from: ReportBuilder.html(from: snapshot))
             try data.write(to: url)
         }
 
@@ -76,26 +99,63 @@ enum Exporter {
     /// offscreen, borderless window gives it a real surface without ever
     /// appearing on screen.
     ///
-    /// KNOWN LIMITATION, tracked separately: this produces ONE page the height
-    /// of the whole document (a real report measures 860 × 6809 points). It is
-    /// readable on screen and in a mail client's preview, but it does not
-    /// paginate, so `@media print` and every `page-break-inside:avoid` rule in
-    /// the stylesheet do nothing.
+    /// It renders one page at a time, by `rect`, and assembles the slices.
     ///
-    /// The obvious fix, `printOperation(with:)`, does not work here: printing
-    /// requires the `com.apple.security.print` sandbox entitlement, which this
-    /// app does not carry and should not gain casually — the entitlement set
-    /// is the privacy claim and the release guard audits it. Attempting it
-    /// hangs and then kills the process. The workable route stays inside the
-    /// sandbox: call `pdf(configuration:)` once per page-sized `rect` and
-    /// assemble the slices. That is a real change to the export path and wants
-    /// its own task rather than a rush before a release.
+    /// A single `pdf(configuration:)` call over the whole document does not
+    /// merely produce an unreadable page the height of the report — past
+    /// roughly 7,000 points **it hangs**, with both the app and the WebContent
+    /// process sitting idle and the export button disabled forever. A real
+    /// 0.2.0 report measured 6,809 points and survived; widening the report to
+    /// show every duplicate group and 25 folders took it past 11,000 and it
+    /// stopped returning. Each slice here is one page tall, so the size of the
+    /// report no longer decides whether the export completes.
+    ///
+    /// `printOperation(with:)` would give CSS-aware page breaks, and cannot be
+    /// used: printing needs the `com.apple.security.print` sandbox
+    /// entitlement, which this app does not carry and should not gain casually
+    /// — the entitlement set is the privacy claim and the release guard audits
+    /// it. Breaks here are geometric, so a row can be cut across two pages.
+    /// That is the accepted trade.
     static func pdfData(from html: String) async throws -> Data {
-        try await pdf(from: html)
+        try await withTimeout(renderTimeout) { try await pdf(from: html) }
+    }
+
+    /// Runs `work`, throwing `pdfTimedOut` if it has not finished in time.
+    ///
+    /// Whichever finishes first wins and the other is cancelled. Without this
+    /// a stalled WebKit render leaves the export button disabled with no error
+    /// and no way back short of quitting the app, which is exactly how the
+    /// oversized single-page render failed.
+    private static func withTimeout(_ limit: Duration,
+                                    _ work: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        try await withThrowingTaskGroup(of: Data.self) { group in
+            group.addTask { try await work() }
+            group.addTask {
+                try await Task.sleep(for: limit)
+                throw ExportError.pdfTimedOut
+            }
+            defer { group.cancelAll() }
+            guard let first = try await group.next() else { throw ExportError.pdfRenderFailed }
+            return first
+        }
     }
 
     /// Width the report is designed at.
     private static let reportWidth: CGFloat = 860
+
+    /// US Letter proportions at the report's width, so a page prints to paper
+    /// without cropping or an odd scale factor.
+    private static let pageHeight: CGFloat = reportWidth * 11.0 / 8.5
+
+    /// Backstop against a pathological document. At Letter proportions this is
+    /// well over a hundred pages of report; anything beyond it is a bug, and a
+    /// truncated PDF beats an export that never finishes.
+    private static let maxPages = 120
+
+    /// A render that has not finished by now is not going to. The old code had
+    /// no bound at all, which is why a hung export left the UI wedged with no
+    /// error and no way back short of quitting the app.
+    private static let renderTimeout: Duration = .seconds(90)
 
     private static func pdf(from html: String) async throws -> Data {
         let frame = NSRect(x: 0, y: 0, width: reportWidth, height: 1100)
@@ -115,8 +175,54 @@ enum Exporter {
         try? await Task.sleep(nanoseconds: 250_000_000)
 
         defer { window.contentView = nil }
-        let cfg = WKPDFConfiguration()
-        return try await web.pdf(configuration: cfg)
+
+        let height = try await documentHeight(of: web)
+        let doc = PDFDocument()
+
+        var top: CGFloat = 0
+        while top < height, doc.pageCount < maxPages {
+            let sliceHeight = min(pageHeight, height - top)
+            let cfg = WKPDFConfiguration()
+            cfg.rect = CGRect(x: 0, y: top, width: reportWidth, height: sliceHeight)
+
+            let data = try await web.pdf(configuration: cfg)
+            guard let slice = PDFDocument(data: data), let page = slice.page(at: 0) else {
+                throw ExportError.pdfRenderFailed
+            }
+            doc.insert(page, at: doc.pageCount)
+            top += pageHeight
+        }
+
+        guard doc.pageCount > 0, let out = doc.dataRepresentation() else {
+            throw ExportError.pdfRenderFailed
+        }
+        return out
+    }
+
+    /// Full laid-out height of the document, in points. Read from the page
+    /// rather than assumed: the report's height depends entirely on how much
+    /// the drive had in it.
+    private static func documentHeight(of web: WKWebView) async throws -> CGFloat {
+        let value = try await web.evaluateJavaScript(
+            "Math.ceil(document.documentElement.scrollHeight)")
+        guard let height = (value as? NSNumber)?.doubleValue, height > 0 else {
+            throw ExportError.pdfRenderFailed
+        }
+        return CGFloat(height)
+    }
+
+    enum ExportError: LocalizedError {
+        case pdfRenderFailed
+        case pdfTimedOut
+
+        var errorDescription: String? {
+            switch self {
+            case .pdfRenderFailed:
+                return "The report could not be rendered as a PDF. Export it as HTML instead, which contains exactly the same content."
+            case .pdfTimedOut:
+                return "The PDF took too long to render and was stopped. Export it as HTML instead, which contains exactly the same content."
+            }
+        }
     }
 
     /// Bridges WKNavigationDelegate's callbacks into async/await.

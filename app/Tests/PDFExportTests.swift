@@ -2,10 +2,12 @@ import XCTest
 import PDFKit
 @testable import VaultlineLabsDriveInspector
 
-/// The PDF is the copy that gets emailed and printed, and it has failed
-/// silently before: a WKWebView that was never placed in a window produced a
-/// blank page, and nothing in the pipeline noticed because a blank PDF is
-/// still a valid PDF. These assert on extracted text, not on file size.
+/// PDF export is NOT offered in the app menu — `Exporter.Format.offered`
+/// explains why. These tests cover the code behind it, which still works in
+/// this bundle, so the day the shipped-context hang is understood the menu item
+/// can come back without rewriting any of it. They also guard the property that
+/// matters for the formats that ARE offered: the report makes no external
+/// requests.
 @MainActor
 final class PDFExportTests: XCTestCase {
 
@@ -14,15 +16,16 @@ final class PDFExportTests: XCTestCase {
         let data = try await Exporter.pdfData(from: html)
 
         let doc = try XCTUnwrap(PDFDocument(data: data), "not a readable PDF")
-        XCTAssertGreaterThan(doc.pageCount, 0)
+        XCTAssertGreaterThan(doc.pageCount, 1, "a full report has to paginate")
 
-        // Documents the known single-page behaviour rather than asserting it is
-        // correct. `Exporter.pdfData` explains why, and why the fix is its own
-        // task. If this ever starts failing because the export paginated, that
-        // is the good outcome: delete this line.
-        let bounds = try XCTUnwrap(doc.page(at: 0)?.bounds(for: .mediaBox))
-        XCTAssertGreaterThan(bounds.height, 2_000,
-                             "export is still one document-height page; see Exporter.pdfData")
+        // Every page is Letter-proportioned. The failure this replaces was a
+        // single page 6,809 points tall, which is unreadable printed and, once
+        // the report grew past ~11,000 points, did not render at all.
+        for i in 0..<doc.pageCount {
+            let bounds = try XCTUnwrap(doc.page(at: i)?.bounds(for: .mediaBox))
+            XCTAssertEqual(bounds.width, 860, accuracy: 1, "page \(i) width")
+            XCTAssertLessThanOrEqual(bounds.height, 1_120, "page \(i) is not a page")
+        }
 
         let text = (0..<doc.pageCount)
             .compactMap { doc.page(at: $0)?.string }
@@ -43,6 +46,29 @@ final class PDFExportTests: XCTestCase {
         XCTAssertTrue(text.contains("clip0.mov"), "duplicate rows missing")
         XCTAssertTrue(text.contains("ProRes 422 HQ"), "codec rows missing")
         XCTAssertGreaterThan(text.count, 2_000, "PDF text layer is suspiciously thin")
+    }
+
+    /// The size that actually broke it. A 2 TB drive with every duplicate group
+    /// and 25 folders listed lays out past 11,000 points, and the old
+    /// whole-document render simply stopped returning: app idle, WebContent
+    /// idle, export button disabled until the app was force quit. Nothing in
+    /// the fixture below is unusual for a real media volume.
+    func testAnOversizedReportStillExports() async throws {
+        var s = Self.snapshot()
+        s.dupes = DuplicateSummary(isComplete: true, candidatesChecked: 400, candidatesTotal: 400,
+            groups: (0..<Show.duplicateGroups).map { i in
+                DuplicateGroup(size: Int64(4_000_000_000 / (i + 1)), paths: [
+                    "/Volumes/SANDBOX/26-006_Drone-Reel-SRE/02_MEDIA/20260625_Shoot-Day-01/CAMERA/DRONE/241126-DJI-01/DJI_0\(i).MP4",
+                    "/Volumes/SANDBOX/26-006_Drone-Reel-SRE/07_EXPORTS/STAKEHOLDER_REVIEW/26-006_Drone-Reel_16x9_REVIEW_v\(i).mp4",
+                    "/Volumes/SANDBOX/26-006_Drone-Reel-SRE/08_DELIVERABLES/SOCIAL/9x16/26-006_Drone-Reel_9x16_MASTER_\(i).mp4"
+                ])
+            })
+
+        let html = ReportBuilder.html(from: s)
+        let data = try await Exporter.pdfData(from: html)
+        let doc = try XCTUnwrap(PDFDocument(data: data))
+        XCTAssertGreaterThan(doc.pageCount, 10, "a report this size is many pages")
+        XCTAssertLessThanOrEqual(doc.pageCount, 120, "page cap not honoured")
     }
 
     /// The report inlines both logos as data URLs precisely so it never makes a

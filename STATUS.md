@@ -299,3 +299,54 @@ were applied *to this orphan*, so the live page has not received them. It has no
 stale claim to fix — VLP-490 rewrote it — but the duplication is a trap: the
 next person to "update the download page" has an even chance of editing the one
 nobody serves. It should be deleted or reduced to a pointer.
+
+---
+
+## 0.3.1 and 0.3.2 — the PDF export, 2026-08-27
+
+Verifying the shipped 0.3.0 binary on a real drive found something the test
+suite could not: **PDF export hangs.**
+
+Everything else passed. The sandboxed, notarized build scanned
+`SANDBOX-VOLUME-01` through all three passes, security-scoped access held, and
+HTML and CSV both wrote correctly with the new sections, the per-file inventory,
+the UTF-8 BOM and no em dashes. Then PDF export never returned: app idle at 0%,
+WebContent idle at 0.7%, no error, and `Export Report` disabled until the app
+was force quit.
+
+### What it was, and what it was not
+
+`pdf(configuration:)` with a default `WKPDFConfiguration` does not paginate; it
+snapshots the whole document onto one page. A 0.2.0 report measured 860 × 6,809
+points and survived that. Widening the report under VLP-491 to show every
+duplicate group, 25 folders and 25 files pushed a real one past **11,000
+points**, and WebKit stopped returning.
+
+**0.3.1** rendered one page-sized `rect` at a time and assembled the slices, and
+added a 90-second timeout so a stall could never wedge the UI again. In the test
+bundle this is exact and fast: a fixture with 200 duplicate groups across 600
+paths exports in **0.8 seconds**, where the old path hung. In the shipped,
+sandboxed build it still hung — *and the timeout did not fire either*, which
+means the failure is not simply a slow render. A `sample` showed the main thread
+parked normally in its run loop, so the app was responsive; something in the
+async chain never resumed. Not understood.
+
+**0.3.2 removes PDF from the export menu.** A menu item that permanently
+disables the export button is worse than one that is not there. `Format.offered`
+carries the reasoning; the code and its tests stay, so restoring the item is a
+one-line change once the hang is understood. Tracked as **VLP-496**.
+
+Nothing is actually lost. The HTML is a single self-contained file, and Print to
+PDF from any browser paginates it through the browser's own print engine, which
+honours the `@media print` rules the stylesheet has carried since 0.1 and which
+the app's own PDF path never used. That is a better PDF than this app was
+producing. The menu label says so.
+
+### Verified on the shipped 0.3.2 binary
+
+Quarantined DMG, mounted, launched with no Gatekeeper dialog, under App
+Translocation. Full scan of `SANDBOX-VOLUME-01`, then both exports:
+
+- **HTML**, 71,317 bytes: bar fills present, all 12 sections, 0 em dashes, `0.3.2`
+- **CSV**, 392,359 bytes: 2,271 rows including the full `All files` inventory, `0.3.2`
+- `8 h 46 min` in the Footage tile, where every earlier build rounded to `8 h`
