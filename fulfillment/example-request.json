@@ -1,0 +1,20 @@
+{
+  "jobId": "synthetic-example-001",
+  "intakeReceipt": "application_received/example",
+  "openQuestions": [],
+  "resolved": {
+    "teamName": "Example Media Team",
+    "fields": [
+      {"token":"project","label":"Project","required":true,"sticky":true},
+      {"token":"shooter","label":"Shooter","required":true,"sticky":true},
+      {"token":"camera","label":"Camera","required":false,"sticky":true},
+      {"token":"reel","label":"Card / reel","required":true,"sticky":false}
+    ],
+    "workflows": [{
+      "id":"standard-shoot","name":"Standard shoot","detail":"Synthetic example workflow.",
+      "parentSubpath":"01 Shoots","jobNameTemplate":"{date:yyMMdd}_{project}_{reel}",
+      "folders":["01_Media/Camera","01_Media/Audio","02_Edit/Premiere","03_Exports"],
+      "mediaFolder":"01_Media/Camera","projectFolder":"02_Edit/Premiere","projectNameTemplate":"{date:yyMMdd}_{project}.prproj"
+    }]
+  }
+}
