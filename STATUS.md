@@ -29,7 +29,7 @@ Not signed, notarized, published, or deployed.** Updated 2026-08-21 under VLP-20
 | ✅ **Signed, notarized, stapled DMG** | `build/VaultlineLabsDriveInspector-0.1.0.dmg`, 1.0 MB. Both the `.app` and the DMG itself carry tickets — `stapler validate` passes on both. (The DMG needed its own second `notarytool submit`: rebuilding it around the freshly-stapled app produces a new file the first submission's ticket doesn't cover — the "why staple twice" note in `app/RELEASE.md` undersells this; it's actually submit-notarize-staple twice for the DMG layer specifically) |
 | ✅ **End-to-end verified as a real download** | Copied the built app out with a `com.apple.quarantine` xattr set (`Safari` origin, exactly what a browser download looks like), then ran it via `open`. `spctl` accepted it as `Notarized Developer ID` and it launched with **zero Gatekeeper dialog** — no right-click-Open dance |
 | ✅ **Full scan + report export re-verified on the quarantined build** | Ran a real scan on `SANDBOX-VOLUME-01` (2 TB, 1,647 files) through the exact binary a user would get, exported the HTML report, confirmed 2 `data:image` logos inlined and zero external `http` refs — offline-safe |
-| ❌ **Hosting** | Nowhere to put the DMG yet — see the conversation this update came from for options |
+| ✅ **Hosting** | **Solved, and this line was stale for weeks.** GitHub Releases on the public `jake-vaultline/vaultline-labs` repo, linked from the Vercel-hosted site. `v0.1.0` and `v0.2.0` are published and both return 200 |
 | ❌ **Real-drive testing** | Narrower than it was — see below. `SANDBOX-VOLUME-01` covered "large real messy drive" and "vertical/mixed footage" in passing, but not the specific edge cases listed (FCP bundle, camera card structure, permission-denied subfolder, network volume, never-run-before Mac) |
 
 ---
@@ -267,5 +267,35 @@ three passes finish, export HTML, PDF and CSV. The security-scope lifecycle and
 the save panel were not touched by 0.3.0, so this is confirmation rather than
 suspicion, but it is the one step still owed before the DMG is published.
 
-**Hosting is still the blocker.** The DMG is built and the page points at
-`VaultlineLabsDriveInspector-0.3.0.dmg`, but there is nowhere to serve it yet.
+### Hosting was never actually the blocker
+
+The "nowhere to put the DMG" line above sat in this file for weeks after the
+question had been answered. Hosting is **GitHub Releases on the public
+`vaultline-labs` repo**, served through the Vercel site. `v0.1.0` and `v0.2.0`
+are published; both URLs return 200.
+
+Since VLP-490 (`repos/website`, 2026-08-27) the live `/drive-inspector` page no
+longer contains a release URL at all. It posts the lead to `/api/download`,
+which records it and only then returns the URL, version and SHA-256. Those three
+values are environment variables:
+
+| Variable | Currently defaults to |
+|---|---|
+| `DRIVE_INSPECTOR_VERSION` | `0.2.0` |
+| `DRIVE_INSPECTOR_DMG_URL` | the `v0.2.0` release asset |
+| `DRIVE_INSPECTOR_DMG_SHA256` | `9dfaad5d…bba32d` (verified to match the real 0.2.0 artifact) |
+
+So publishing 0.3.0 needs **no code change**: cut the GitHub Release, then set
+the three variables. Both are publication actions and wait on Jake.
+
+`VaultlineLabsDriveInspector-0.3.0.dmg` SHA-256:
+`9f21cc4b554c052a04d0e40a53d17a68c49e8c0f9dcd66f3047ded3119f73194`
+
+### `download/index.html` in this repo is an orphan
+
+It is not deployed, not referenced by anything, and duplicates the live page in
+`repos/website/drive-inspector.html`. The claim and version fixes recorded above
+were applied *to this orphan*, so the live page has not received them. It has no
+stale claim to fix — VLP-490 rewrote it — but the duplication is a trap: the
+next person to "update the download page" has an even chance of editing the one
+nobody serves. It should be deleted or reduced to a pointer.
