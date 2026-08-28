@@ -197,3 +197,42 @@ than the price.
   SHA-256 and says so. Per the rule above the page should say "verified", but
   editing it is outreach copy and out of this task's scope.
 - Real-drive testing (the list above) is still the standing gap.
+
+---
+
+## Follow-ons and 0.3.0 — 2026-08-27
+
+Second pass on VLP-491, then a signed release.
+
+| | |
+|---|---|
+| Download page claim | Said "Likely duplicate files". The app matches by full SHA-256 and says so, and STATUS's own rule is that the page and the app claim the same things. Now "verified byte for byte by full SHA-256 content hash, not guessed from name or size" |
+| Download page version | Was still pointing at the 0.1.0 DMG at "about 4 MB" |
+| Em dashes | Swept out of the download page too |
+| `Show.years` | Defined for both surfaces but only the window used it, so the report and window could still disagree on the timeline. Both now take the most recent 20 and say how many years they dropped |
+| `FileEntry.id` | Was a per-instance `UUID()`, which disagreed with the `==`/`hash` implementations right below it (both path-only) and cost 16 bytes on every entry — newly material now the walk keeps one per file for the CSV. Now the path |
+| `Fmt.duration` | Reported "8 h" for eight hours forty-seven. It is a headline figure in both surfaces; now "8 h 47 min" |
+| Top formats guard | The report dropped the section for a single-extension drive while the window rendered an empty heading. Both now key off the same condition |
+
+### The PDF is one page 94 inches tall
+
+Found while adding `PDFExportTests`. `Exporter.pdf()` uses
+`WKWebView.pdf(configuration:)` with a default configuration, which snapshots
+rather than paginates: a real report is a **single 860 × 6809 point page**. The
+export menu offers it "for email and print". Because nothing ever breaks a page,
+the `@media print` block and every `break-inside:avoid` rule in the stylesheet
+have never done anything.
+
+**Not fixed here, deliberately.** The obvious route,
+`WKWebView.printOperation(with:)`, needs the `com.apple.security.print`
+entitlement, which this app does not carry and should not gain in a rush — the
+entitlement set *is* the privacy claim, and `release.sh` audits it. The attempt
+hung and killed the test host. The sandbox-safe route is repeated
+`pdf(configuration:)` calls with a page-sized `rect`, assembled into one
+document, and that is a real change to an export path that deserves its own
+task rather than being slipped in minutes before signing. Tracked as **VLP-496**.
+
+`PDFExportTests` documents the current behaviour rather than blessing it, and
+also guards the property that actually matters today: the PDF is not blank, it
+carries every section and real figures, and the report still makes no external
+requests.

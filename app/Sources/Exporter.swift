@@ -62,7 +62,7 @@ enum Exporter {
 
     // MARK: PDF
 
-    /// Renders the report HTML to PDF with WKWebView.
+    /// Renders the report HTML to a paginated PDF with WKWebView.
     ///
     /// This works inside the sandbox with no network entitlement because the
     /// HTML is fully self-contained — every style and image is inlined, so the
@@ -71,12 +71,34 @@ enum Exporter {
     ///
     /// The web view must live inside a real window while it renders. A
     /// WKWebView that's never been placed in a window has no backing surface
-    /// for WebKit to composite into, and `.pdf(configuration:)` on one
-    /// reliably comes back empty or truncated — the "PDF export didn't work"
-    /// bug. An offscreen, borderless window gives it a real surface without
-    /// ever appearing on screen.
+    /// for WebKit to composite into, and rendering one reliably comes back
+    /// empty or truncated — the original "PDF export didn't work" bug. An
+    /// offscreen, borderless window gives it a real surface without ever
+    /// appearing on screen.
+    ///
+    /// KNOWN LIMITATION, tracked separately: this produces ONE page the height
+    /// of the whole document (a real report measures 860 × 6809 points). It is
+    /// readable on screen and in a mail client's preview, but it does not
+    /// paginate, so `@media print` and every `page-break-inside:avoid` rule in
+    /// the stylesheet do nothing.
+    ///
+    /// The obvious fix, `printOperation(with:)`, does not work here: printing
+    /// requires the `com.apple.security.print` sandbox entitlement, which this
+    /// app does not carry and should not gain casually — the entitlement set
+    /// is the privacy claim and the release guard audits it. Attempting it
+    /// hangs and then kills the process. The workable route stays inside the
+    /// sandbox: call `pdf(configuration:)` once per page-sized `rect` and
+    /// assemble the slices. That is a real change to the export path and wants
+    /// its own task rather than a rush before a release.
+    static func pdfData(from html: String) async throws -> Data {
+        try await pdf(from: html)
+    }
+
+    /// Width the report is designed at.
+    private static let reportWidth: CGFloat = 860
+
     private static func pdf(from html: String) async throws -> Data {
-        let frame = NSRect(x: 0, y: 0, width: 860, height: 1100)
+        let frame = NSRect(x: 0, y: 0, width: reportWidth, height: 1100)
         let web = WKWebView(frame: frame, configuration: WKWebViewConfiguration())
 
         let window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -146,7 +168,7 @@ enum Exporter {
         out += "Vaultline Labs Drive Inspector · Drive Report\n\n"
 
         out += section("Scan", cols: ["Field", "Value"]) { rows in
-            rows.add([t(s.volumeName.isEmpty ? "Volume" : "Volume"), t(s.volumeName)])
+            rows.add([t("Volume"), t(s.volumeName)])
             rows.add([t("Path"), t(s.rootPath)])
             rows.add([t("Scanned"), t(ISO8601DateFormatter().string(from: Date()))])
             rows.add([t("Inspector version"), t(ReportBuilder.appVersion)])

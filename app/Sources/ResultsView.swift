@@ -227,19 +227,23 @@ struct ResultsView: View {
         }
     }
 
+    @ViewBuilder
     private var extensionBreakdown: some View {
-        VStack(alignment: .leading, spacing: VL.Space.s) {
-            SectionLabel("Top formats")
-            VStack(spacing: VL.Space.s) {
-                ForEach(snapshot.topExtensions(Show.extensions)) { row in
-                    Bar(label: ".\(row.name)",
-                        detail: "\(Fmt.files(row.count)) · \(Fmt.bytes(row.bytes))",
-                        fraction: fraction(row.bytes),
-                        trailing: Fmt.percent(row.bytes, of: snapshot.bytesScanned))
+        let rows = snapshot.topExtensions(Show.extensions)
+        if !rows.isEmpty {
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Top formats")
+                VStack(spacing: VL.Space.s) {
+                    ForEach(rows) { row in
+                        Bar(label: ".\(row.name)",
+                            detail: "\(Fmt.files(row.count)) · \(Fmt.bytes(row.bytes))",
+                            fraction: fraction(row.bytes),
+                            trailing: Fmt.percent(row.bytes, of: snapshot.bytesScanned))
+                    }
                 }
+                Remainder(shown: rows.count, total: snapshot.byExtension.count,
+                          noun: "extension")
             }
-            Remainder(shown: min(Show.extensions, snapshot.byExtension.count),
-                      total: snapshot.byExtension.count, noun: "extension")
         }
     }
 
@@ -274,6 +278,8 @@ struct ResultsView: View {
                      : "From file modification dates. Little of this drive's media carried an embedded capture date, so copied files may appear in the wrong year.")
                     .font(VL.small).foregroundStyle(VL.inkFaint)
                     .fixedSize(horizontal: false, vertical: true)
+                Remainder(shown: years.count, total: snapshot.probe.bytesByYear.count,
+                          noun: "year")
             }
         }
     }

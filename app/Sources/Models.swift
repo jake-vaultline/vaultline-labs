@@ -30,12 +30,16 @@ enum MediaCategory: String, CaseIterable, Identifiable {
 // MARK: - Entries
 
 struct FileEntry: Identifiable, Hashable {
-    let id = UUID()
     let path: String
     let size: Int64
     let modified: Date?
     let category: MediaCategory
 
+    /// The path, not a fresh UUID. Two entries for the same file already
+    /// compare and hash as equal below, so a per-instance UUID made identity
+    /// disagree with equality. It also cost 16 bytes on every entry, which
+    /// matters now that the walk keeps one per file for the CSV inventory.
+    var id: String { path }
     var name: String { (path as NSString).lastPathComponent }
 
     static func == (a: FileEntry, b: FileEntry) -> Bool { a.path == b.path }
@@ -324,11 +328,16 @@ enum Fmt {
         return String(format: "%.0f%%", Double(part) / Double(whole) * 100)
     }
 
+    /// Total runtime. Carries the minutes as well as the hours: this is a
+    /// headline figure in both the window and the report, and "8 h" for eight
+    /// hours and forty-seven minutes throws away most of a working day.
     static func duration(_ s: TimeInterval) -> String {
         guard s > 0 else { return "—" }
-        let h = Int(s) / 3600
-        if h >= 1 { return "\(count(h)) h" }
-        return "\(Int(s) / 60) min"
+        let minutes = Int(s) / 60
+        let h = minutes / 60
+        let m = minutes % 60
+        if h >= 1 { return m > 0 ? "\(count(h)) h \(m) min" : "\(count(h)) h" }
+        return "\(max(1, minutes)) min"
     }
 
     static func percent(_ part: Int, of whole: Int) -> String {

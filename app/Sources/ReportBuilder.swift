@@ -140,7 +140,7 @@ enum ReportBuilder {
     /// window has always shown this; the report did not.
     private static func formatBlock(_ s: ScanSnapshot) -> String {
         let rows = s.topExtensions(Show.extensions)
-        guard rows.count > 1 else { return "" }
+        guard !rows.isEmpty else { return "" }
         let bars = rows.map {
             bar(label: ".\($0.name)", fraction: frac($0.bytes, s.bytesScanned),
                 trailing: Fmt.percent($0.bytes, of: s.bytesScanned),
@@ -180,7 +180,10 @@ enum ReportBuilder {
     }
 
     private static func yearBlock(_ s: ScanSnapshot) -> String {
-        let years = s.probe.bytesByYear.sorted { $0.key < $1.key }
+        // Most recent `Show.years`, same as the window. Past roughly twenty
+        // columns the labels stop being readable at this width, and the years
+        // that get dropped are the oldest, which is the right end to lose.
+        let years = s.probe.bytesByYear.sorted { $0.key < $1.key }.suffix(Show.years)
         guard years.count > 1 else { return "" }
         let peak = years.map(\.value).max() ?? 1
 
@@ -199,7 +202,9 @@ enum ReportBuilder {
 
         return "<section><h2>Media by year</h2><p class=\"lede\">\(source)</p>"
              + "<div class=\"years\" style=\"grid-template-columns:repeat(\(years.count),1fr)\">"
-             + "\(cols)</div></section>\n"
+             + "\(cols)</div>"
+             + more(shown: years.count, of: s.probe.bytesByYear.count, noun: "year")
+             + "</section>\n"
     }
 
     private static func foldersBlock(_ s: ScanSnapshot) -> String {
@@ -373,7 +378,7 @@ enum ReportBuilder {
     }
 
     static var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0"
     }
 
     /// Inlines a bundled PNG as a data URL. A report that renders a broken image
