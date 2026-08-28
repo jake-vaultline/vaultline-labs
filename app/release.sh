@@ -109,6 +109,9 @@ fi
 
 say "Done"
 echo "  $DMG"
-echo "  $(du -h "$DMG" | cut -f1)"
+# Apparent size, not `du`. `du` reports blocks on disk and read 2.1M for a DMG
+# that downloads as 1.1M — the download page quotes this number, so it has to
+# be the one a browser will show.
+echo "  $(ls -l "$DMG" | awk '{printf "%.2f MB", $5/1048576}') (download size)"
 echo
 echo "Ship it: upload the DMG, update the download page's version and size."

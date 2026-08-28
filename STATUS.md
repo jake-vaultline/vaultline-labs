@@ -236,3 +236,36 @@ task rather than being slipped in minutes before signing. Tracked as **VLP-496**
 also guards the property that actually matters today: the PDF is not blank, it
 carries every section and real figures, and the report still makes no external
 requests.
+
+### 0.3.0 shipped as a signed, notarized DMG — 2026-08-27
+
+`./release.sh` end to end. Entitlement guard passed (sandboxed, no network
+entitlement, user-selected files only). Notarized twice as the script intends,
+both **Accepted** (`937639c6…`, then `19b23a3d…` for the repackaged image),
+stapled on both the app and the DMG.
+
+Verified as a real download rather than as a local build: copied the DMG out,
+set a `com.apple.quarantine` xattr with a Safari origin, mounted it, and
+
+- `spctl -a -t exec` → **accepted · source=Notarized Developer ID**
+- `stapler validate` on the app inside the mounted image → passed
+- launched from the quarantined mount with **no Gatekeeper dialog**, running
+  under App Translocation exactly as a downloaded app does
+- `CFBundleShortVersionString` → `0.3.0`
+
+`build/VaultlineLabsDriveInspector-0.3.0.dmg`, **1.11 MB** (1,164,824 bytes),
+staged into `download/` beside the page. `release.sh`'s closing line used to
+quote `du`, which reported 2.1M for this same file; the download page quotes
+the size a browser shows, so it now prints the apparent size.
+
+**Not done: an interactive scan-and-export on the shipped binary.** The app
+launched and drew its window, but another application kept taking keyboard
+focus and driving the sandboxed file picker reliably was not worth forcing.
+Everything the release pipeline can assert is asserted; what remains is the
+30-second manual check — drag `SANDBOX-VOLUME-01` onto the window, let all
+three passes finish, export HTML, PDF and CSV. The security-scope lifecycle and
+the save panel were not touched by 0.3.0, so this is confirmation rather than
+suspicion, but it is the one step still owed before the DMG is published.
+
+**Hosting is still the blocker.** The DMG is built and the page points at
+`VaultlineLabsDriveInspector-0.3.0.dmg`, but there is nowhere to serve it yet.
