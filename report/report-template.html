@@ -3,7 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Drive Report — SAMSUNG T7 Shield · Vaultline</title>
+<title>SAMSUNG T7 Shield Drive Report · Vaultline</title>
+<!--
+  Design of record for the exported report, with sample data.
+
+  The stylesheet below is the same sheet the app ships, copied verbatim from
+  `app/Sources/ReportStyle.swift`. Change it there first, then copy it here,
+  or the two drift and the designed template stops describing what people
+  actually receive.
+
+  For copy, `app/Sources/ReportBuilder.swift` is authoritative. The sample
+  content here is illustrative and does not track every wording change.
+-->
+
 <style>
 /* ───────────────────────────────────────────────────────────────
    Vaultline "Archive Console" palette.
@@ -52,16 +64,22 @@ body{
 
 /* ── Hero stats ─────────────────────────────────────────────── */
 .hero{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule)}
-.hero div{padding:19px 20px;border-right:1px solid var(--rule)}
+/* Each tile is a column so the notes sit on a common bottom line. Without it
+   a value that wraps to two lines (a date range does, often) drops its own
+   note below every other tile's and the row reads as misaligned. */
+.hero div{padding:19px 20px;border-right:1px solid var(--rule);display:flex;flex-direction:column}
 .hero div:last-child{border-right:0}
 .hero .k{font-size:9.5px;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .hero .v{margin-top:5px;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
-.hero .n{margin-top:2px;font-size:11.5px;color:var(--ink-3)}
+.hero .n{margin-top:auto;padding-top:6px;font-size:11.5px;color:var(--ink-3)}
 
 .body{padding:34px 44px 12px}
 section{margin-bottom:36px;break-inside:avoid}
 h2{margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--ink-3)}
 .lede{margin:0 0 16px;font-size:12.5px;color:var(--ink-3)}
+/* Anything the report had to leave out says so here, with the count. A list
+   that silently stops at ten reads as a complete answer. */
+.more{margin-top:11px;font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 
 /* ── Capacity ───────────────────────────────────────────────── */
 .cap-bar{height:26px;border-radius:4px;background:var(--track);overflow:hidden;display:flex}
@@ -74,7 +92,10 @@ h2{margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:1.3px;text-trans
 .bar{display:grid;grid-template-columns:126px 1fr 78px;align-items:center;gap:14px}
 .bar .lbl{font-size:12.5px;font-weight:500}
 .bar .tr{height:9px;border-radius:4px;background:var(--track);overflow:hidden}
-.bar .fl{height:100%;border-radius:4px;background:var(--mark-blue)}
+/* `display:block` is load-bearing. `.fl` is an <i>, so without it the fill is
+   an inline box, width and height are ignored, and every bar in the report
+   renders as an empty grey track with no mark on it at all. */
+.bar .fl{display:block;height:100%;border-radius:4px;background:var(--mark-blue)}
 .bar .val{font-size:12px;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .bar .sub{grid-column:2/4;font-size:11px;color:var(--ink-3);margin-top:-4px;font-variant-numeric:tabular-nums}
 
@@ -98,8 +119,17 @@ table{width:100%;border-collapse:collapse}
 th{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);
    text-align:left;font-weight:600;padding:0 0 7px;border-bottom:1px solid var(--rule)}
 td{padding:7px 0;font-size:12.5px;border-bottom:1px solid var(--rule);vertical-align:middle}
+/* Every numeric column is right-aligned, so without a gutter two adjacent
+   headings butt straight into each other and "Copies Reclaimable" reads as
+   one word. The gutter goes on the cell, not the table, so the first
+   column keeps the full width it needs for long paths. */
+th+th,td+td{padding-left:26px}
+th.n{text-align:right}
 td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
-td .path{color:var(--ink-3);font-size:11px}
+/* Paths are long and unbreakable at spaces. Letting them wrap anywhere is
+   what keeps the first column from crushing the numeric ones. */
+td .path{color:var(--ink-3);font-size:11px;overflow-wrap:anywhere}
+td .nm{overflow-wrap:anywhere}
 .minibar{height:5px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:4px}
 .minibar i{display:block;height:100%;background:var(--mark-blue);border-radius:3px}
 
@@ -122,6 +152,7 @@ details td,details th{font-size:11.5px}
 .foot{background:var(--charcoal);color:var(--white);padding:30px 44px 26px;margin-top:8px}
 .foot .q{font-size:17px;font-weight:500;letter-spacing:-.2px;max-width:600px;line-height:1.42}
 .foot .p{margin-top:11px;font-size:13px;color:var(--steel);max-width:600px}
+.foot .cta{display:inline-block;margin-top:8px;color:var(--white);font-weight:600;text-decoration:none}
 .foot .r{margin-top:22px;padding-top:15px;border-top:1px solid rgba(244,241,234,.14);
          display:flex;justify-content:space-between;align-items:baseline;gap:16px}
 .foot .r .t{font-size:12.5px;color:var(--white);display:flex;align-items:center;gap:11px}
@@ -283,7 +314,7 @@ details td,details th{font-size:11.5px}
     <section>
       <h2>Largest folders</h2>
       <table>
-        <thead><tr><th>Folder</th><th style="text-align:right">Files</th><th style="text-align:right">Size</th></tr></thead>
+        <thead><tr><th>Folder</th><th class="n">Files</th><th class="n">Size</th></tr></thead>
         <tbody>
           <tr><td>2024_Q3_Campaign<div class="path">/Projects/2024_Q3_Campaign</div>
               <div class="minibar"><i style="width:100%"></i></div></td>
@@ -308,7 +339,7 @@ details td,details th{font-size:11.5px}
     <section>
       <h2>Largest files</h2>
       <table>
-        <thead><tr><th>File</th><th style="text-align:right">Codec</th><th style="text-align:right">Size</th></tr></thead>
+        <thead><tr><th>File</th><th class="n">Codec</th><th class="n">Size</th></tr></thead>
         <tbody>
           <tr><td>A007_C012_Master.mov<div class="path">/Projects/2024_Q3_Campaign/Masters</div></td>
               <td class="n">ProRes 422 HQ</td><td class="n">61.4 GB</td></tr>
@@ -337,7 +368,7 @@ details td,details th{font-size:11.5px}
         <div class="it">
           <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="2.5" y="2.5" width="8" height="8" rx="1.2"/><rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/></svg>
-          <div><b>218 verified extra copies — 84 GB reclaimable</b>
+          <div><b>218 verified extra copies, 84 GB reclaimable</b>
             <span>Matched by complete SHA-256 content hash. Check paths before deleting anything.</span></div>
         </div>
         <div class="it">
@@ -359,17 +390,18 @@ details td,details th{font-size:11.5px}
 
   <!-- ── Footer / the bridge ──────────────────────────────── -->
   <footer class="foot">
-    <div class="q">You already captured this footage. The hard part is finding it again three years later.</div>
-    <div class="p">This report covers one drive. Vaultline indexes every drive your team owns —
-      searchable, tagged, transcribed — built around your existing storage, without moving
-      your original media.</div>
+    <div class="q">Finding the duplicates is the easy half. Knowing why they keep appearing is the part that changes next quarter.</div>
+    <div class="p">The Media Operations Blueprint is a written read of how footage actually moves
+      through your team, from card to archive to the search three years later, and a plan for
+      what to change first. It starts from the workflow you already have rather than from
+      software you would have to buy.
+      <a class="cta" href="https://www.vaultlinesolutions.com/offers/media-operations-blueprint?entry_context=duplicate-finder-report">See the Media Operations Blueprint &rarr;</a></div>
     <div class="r">
       <span class="t"><img alt="" src="data:image/png;base64,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">Custom software for serious footage libraries.</span>
-      <span class="s">vaultlinesolutions.com</span>
     </div>
     <div class="r" style="border:0;padding-top:8px;margin-top:2px">
-      <span class="s">Generated by Vaultline Labs Drive Inspector 0.1.0 · scanned locally, never uploaded</span>
-      <span class="s">Sample data — design preview</span>
+      <span class="s">Generated by Vaultline Labs Drive Inspector 0.2.0</span>
+      <span class="s">Sample data, design preview</span>
     </div>
   </footer>
 

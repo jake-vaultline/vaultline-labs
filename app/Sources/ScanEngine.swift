@@ -11,6 +11,17 @@ final class MediaIndex: @unchecked Sendable {
     /// separate because duplicates aren't a media-only question — a 12 GB
     /// project cache copied three times is exactly what people want to find.
     var large: [FileEntry] = []
+    /// Every file the walk saw, for the CSV export and nothing else.
+    ///
+    /// The CSV has always been offered as "every file, for your own analysis"
+    /// and never contained one: it shipped aggregates plus the largest 100.
+    /// This is the row source that makes the label true. It stays out of
+    /// ScanSnapshot for the same reason `refs` does — the snapshot is copied
+    /// and republished several times a second.
+    var all: [FileEntry] = []
+    /// Files past `Walker.maxMediaRefs` that `all` did not keep. The CSV says
+    /// so rather than presenting a truncated inventory as complete.
+    var allOverflow = 0
 }
 
 // MARK: - Engine
@@ -33,6 +44,13 @@ final class ScanEngine: ObservableObject {
 
     /// True while any pass is running.
     var isBusy: Bool { isScanning || snapshot.probe.isRunning || snapshot.dupes.isRunning }
+
+    /// Every file the current scan walked, for the CSV export. Read straight
+    /// off the index rather than the snapshot, which deliberately never
+    /// carries it.
+    var inventory: FileInventory {
+        FileInventory(files: index.all, notKept: index.allOverflow)
+    }
     var canContinueDuplicates: Bool {
         snapshot.dupes.isPaused && !isScanning && !snapshot.probe.isRunning && !snapshot.dupes.isRunning
     }
@@ -342,6 +360,11 @@ enum Walker {
                         }
                         if entry.size >= DuplicateFinder.minimumSize, index.large.count < maxMediaRefs {
                             index.large.append(entry)
+                        }
+                        if index.all.count < maxMediaRefs {
+                            index.all.append(entry)
+                        } else {
+                            index.allOverflow += 1
                         }
                     }
 

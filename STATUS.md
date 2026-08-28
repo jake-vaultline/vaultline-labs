@@ -121,3 +121,79 @@ quietly wrong. Recorded so the same mistakes aren't reintroduced:
 claim is now true — Pass 3 exists — so it's back. Keep them in sync every release. A
 free tool that over-promises does more damage to a company selling trust in media
 infrastructure than shipping late ever would.
+
+---
+
+## Report, app and CSV parity pass — 2026-08-27, VLP-491
+
+From Jake's read of a real 2 TB export. Six things, one of them a rendering bug
+that had been shipping since 0.1.
+
+### The bars never rendered
+
+`.bar .fl` is an `<i>`. It carried `height:100%` and an inline `width:` but no
+`display:block`, so it stayed an inline box, both dimensions were ignored, and
+every bar in **What's on it**, **Codecs** and **Resolutions** drew as an empty
+grey track. The capacity bar, the folder mini-bars and the year columns were all
+fine, because each of those sets `display:block` explicitly — which is exactly
+why nobody caught it by eye. One declaration; `testBarFillIsABlockSoItActuallyRenders`
+now guards it.
+
+Codecs and resolutions also gained a figure under each bar. "17% H.264" does not
+tell a producer whether that is four clips or four hundred.
+
+### "COPIESRECLAIMABLE"
+
+`td` and `th` had zero horizontal padding, so two right-aligned numeric columns
+butted straight into each other and the duplicates table header read as one word.
+Now `th+th,td+td{padding-left:26px}`, with `overflow-wrap:anywhere` on paths so the
+first column gives rather than crushing the numbers.
+
+### The app showed less than the file it exported
+
+The two surfaces had drifted badly:
+
+| | Was in the app | Was in the report |
+|---|---|---|
+| Duplicate groups | 25, "see the exported report for the full list" | **10** |
+| Cameras | 5 | 10 |
+| Frame rates | absent | 8 |
+| Media by year | absent | all |
+| Worth a look | 1 of 4 items | 4 |
+| Top formats | 12 | absent |
+| Largest folders / files | 10 / 10 | 10 / 10 (of 25 / 100 kept) |
+
+Every limit now lives in `Show` (`Models.swift`) and both surfaces read it. The
+window gained frame rates, media by year, the full Worth a look block and a
+wrapping camera grid; the report gained Top formats. Section order is identical
+in both. Anything either surface leaves out says so, with the count, and points
+at the CSV.
+
+### The CSV was not what its own menu item said
+
+The export menu had offered "CSV — every file, for your own analysis" since 0.1
+and shipped aggregates plus the largest 100. It now carries a real `All files`
+inventory, sourced from a new `MediaIndex.all` — deliberately not on
+`ScanSnapshot`, which is copied and republished several times a second. Capped at
+`Walker.maxMediaRefs` and it says so in-table when the cap is hit.
+
+Also: UTF-8 BOM so Excel stops mojibaking camera names, human-readable sizes and
+share percentages beside every byte column, project files and full empty-folder
+and duplicate listings, an honest scan-state block, and **unquoted numerics** —
+a quoted `"16000000"` imports as text and every `SUM` over the column silently
+returns zero.
+
+### Copy
+
+No em dashes in report prose, the app's status strings, or the export filenames.
+The `—` glyph still stands in for a missing value in a stat tile; that is a
+placeholder, not prose. Footer drops the `$499`, the `vaultlinesolutions.com`
+line and "scanned locally, never uploaded", and leads with the outcome rather
+than the price.
+
+### Still open
+
+- **The download page says "Likely duplicate files."** The app verifies by full
+  SHA-256 and says so. Per the rule above the page should say "verified", but
+  editing it is outreach copy and out of this task's scope.
+- Real-drive testing (the list above) is still the standing gap.

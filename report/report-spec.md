@@ -22,7 +22,7 @@ for Pass 2, rather than something discovered halfway through writing AVFoundatio
 |---|---|---|
 | **HTML** — single self-contained file | The one that gets pasted into Slack and opened by six people. Highest leverage | Inline CSS/JS, no external requests. Must open offline |
 | **PDF** | Emailed, printed, attached to a handover | Print stylesheet already in the template: light surface, `page-break-inside: avoid` per section, data tables hidden |
-| **CSV** | For the person who wants to pivot it themselves | Flat per-file rows plus a summary block |
+| **CSV** | For the person who wants to pivot it themselves | Flat per-file rows plus a summary block. **Built 2026-08-27 (VLP-491).** Also the complete export: nothing in it is capped by the report's display limits, and every "not shown in the report" note points here |
 
 The HTML template is the master. PDF is that template printed; CSV is a separate flat
 export.
@@ -40,6 +40,7 @@ export.
 | Codecs / Resolutions | Horizontal bars, side by side | Same form, two dimensions. **Two charts, never a dual axis** |
 | Cameras detected | Labelled chips | Identity + count. A chart would add nothing |
 | Media by year | Column chart | Change over time |
+| Top formats | Horizontal bars | Same form as "What's on it", one level finer. Added to the report 2026-08-27; the app window had always shown it |
 | Largest folders / files | Tables with inline mini-bars | Ranked identity where the label matters more than the shape |
 | Worth a look | Status list, icon + label | Status, never color alone |
 
@@ -190,4 +191,26 @@ later."), tagline is the locked ICP-clarity pick.
 - Whether to include the scanned folder path in shared reports, or redact by default —
   paths leak client names
 - Proxy bitrate assumptions to publish
-- Whether the CSV is per-file rows, summary blocks, or both
+- ~~Whether the CSV is per-file rows, summary blocks, or both~~ — **decided 2026-08-27 (VLP-491): both.**
+  The export menu had promised "every file" since 0.1 and shipped aggregates plus the
+  largest 100. It now carries a full `All files` inventory sourced from `MediaIndex.all`,
+  capped at `Walker.maxMediaRefs` rows and saying so in-table when the cap is hit. Byte
+  columns ship beside a human-readable size and a share; numeric fields are unquoted so
+  spreadsheets type them as numbers
+
+
+---
+
+## 6. Display limits, and the parity rule
+
+**The app window and the report show the same sections, in the same order, at the
+same depth.** They did not for the first two versions: the report cut duplicates at
+ten groups while the window showed twenty-five and told the reader to open the report
+for the rest, the window showed five cameras against the report's ten, and frame
+rates, media-by-year and three of the four "Worth a look" items existed only in the
+report.
+
+Every limit now lives in `Show` (`app/Sources/Models.swift`) and both surfaces read
+from it. Anything a surface leaves out says so, with the count, and points at the CSV.
+
+The CSV is never limited by `Show`. It is the complete export.

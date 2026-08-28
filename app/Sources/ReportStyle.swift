@@ -57,16 +57,22 @@ body{
 
 /* ── Hero stats ─────────────────────────────────────────────── */
 .hero{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--rule)}
-.hero div{padding:19px 20px;border-right:1px solid var(--rule)}
+/* Each tile is a column so the notes sit on a common bottom line. Without it
+   a value that wraps to two lines (a date range does, often) drops its own
+   note below every other tile's and the row reads as misaligned. */
+.hero div{padding:19px 20px;border-right:1px solid var(--rule);display:flex;flex-direction:column}
 .hero div:last-child{border-right:0}
 .hero .k{font-size:9.5px;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .hero .v{margin-top:5px;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
-.hero .n{margin-top:2px;font-size:11.5px;color:var(--ink-3)}
+.hero .n{margin-top:auto;padding-top:6px;font-size:11.5px;color:var(--ink-3)}
 
 .body{padding:34px 44px 12px}
 section{margin-bottom:36px;break-inside:avoid}
 h2{margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--ink-3)}
 .lede{margin:0 0 16px;font-size:12.5px;color:var(--ink-3)}
+/* Anything the report had to leave out says so here, with the count. A list
+   that silently stops at ten reads as a complete answer. */
+.more{margin-top:11px;font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 
 /* ── Capacity ───────────────────────────────────────────────── */
 .cap-bar{height:26px;border-radius:4px;background:var(--track);overflow:hidden;display:flex}
@@ -79,7 +85,10 @@ h2{margin:0 0 3px;font-size:11px;font-weight:700;letter-spacing:1.3px;text-trans
 .bar{display:grid;grid-template-columns:126px 1fr 78px;align-items:center;gap:14px}
 .bar .lbl{font-size:12.5px;font-weight:500}
 .bar .tr{height:9px;border-radius:4px;background:var(--track);overflow:hidden}
-.bar .fl{height:100%;border-radius:4px;background:var(--mark-blue)}
+/* `display:block` is load-bearing. `.fl` is an <i>, so without it the fill is
+   an inline box, width and height are ignored, and every bar in the report
+   renders as an empty grey track with no mark on it at all. */
+.bar .fl{display:block;height:100%;border-radius:4px;background:var(--mark-blue)}
 .bar .val{font-size:12px;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .bar .sub{grid-column:2/4;font-size:11px;color:var(--ink-3);margin-top:-4px;font-variant-numeric:tabular-nums}
 
@@ -103,8 +112,17 @@ table{width:100%;border-collapse:collapse}
 th{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);
    text-align:left;font-weight:600;padding:0 0 7px;border-bottom:1px solid var(--rule)}
 td{padding:7px 0;font-size:12.5px;border-bottom:1px solid var(--rule);vertical-align:middle}
+/* Every numeric column is right-aligned, so without a gutter two adjacent
+   headings butt straight into each other and "Copies Reclaimable" reads as
+   one word. The gutter goes on the cell, not the table, so the first
+   column keeps the full width it needs for long paths. */
+th+th,td+td{padding-left:26px}
+th.n{text-align:right}
 td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
-td .path{color:var(--ink-3);font-size:11px}
+/* Paths are long and unbreakable at spaces. Letting them wrap anywhere is
+   what keeps the first column from crushing the numeric ones. */
+td .path{color:var(--ink-3);font-size:11px;overflow-wrap:anywhere}
+td .nm{overflow-wrap:anywhere}
 .minibar{height:5px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:4px}
 .minibar i{display:block;height:100%;background:var(--mark-blue);border-radius:3px}
 

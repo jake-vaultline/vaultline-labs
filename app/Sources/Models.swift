@@ -164,6 +164,45 @@ struct DuplicateSummary {
     }
 }
 
+// MARK: - Inventory
+
+/// The full per-file list, passed to the CSV export only.
+///
+/// Kept out of `ScanSnapshot` on purpose: the snapshot is copied and
+/// republished several times a second while a scan runs, and carrying a
+/// hundred-thousand-element array through that is the one thing that makes a
+/// live-updating scan stutter.
+struct FileInventory {
+    var files: [FileEntry] = []
+    /// Files the walk saw but did not keep, once `Walker.maxMediaRefs` was hit.
+    /// Non-zero means the CSV inventory is partial and has to say so.
+    var notKept: Int = 0
+}
+
+// MARK: - Display limits
+
+/// How many rows each ranked list shows, in the app window *and* in the
+/// exported report.
+///
+/// These used to live at each call site, and the two surfaces drifted: the
+/// report cut duplicates at ten while the window showed twenty-five and told
+/// the reader to open the report for the rest, and the window showed five
+/// cameras where the report showed ten. Anything a surface has to leave out
+/// says so, with the count and where the rest lives.
+///
+/// The CSV is never limited by these. It is the complete export.
+enum Show {
+    static let codecs = 12
+    static let resolutions = 12
+    static let frameRates = 12
+    static let cameras = 24
+    static let extensions = 12
+    static let largestFolders = Walker.largestFoldersKept
+    static let largestFiles = 25
+    static let duplicateGroups = 200
+    static let years = 20
+}
+
 // MARK: - Ranked row
 
 /// A named row in any ranked breakdown — extensions, codecs, resolutions,
@@ -295,6 +334,29 @@ enum Fmt {
     static func percent(_ part: Int, of whole: Int) -> String {
         guard whole > 0 else { return "0%" }
         return String(format: "%.0f%%", Double(part) / Double(whole) * 100)
+    }
+
+    /// One-decimal share, unsuffixed, for the CSV. A spreadsheet wants a number
+    /// it can sort and chart, not "58%".
+    static func share(_ part: Int64, of whole: Int64) -> String {
+        guard whole > 0 else { return "0.0" }
+        return String(format: "%.1f", Double(part) / Double(whole) * 100)
+    }
+
+    static func share(_ part: Int, of whole: Int) -> String {
+        guard whole > 0 else { return "0.0" }
+        return String(format: "%.1f", Double(part) / Double(whole) * 100)
+    }
+
+    /// ISO-8601 date only. Sorts correctly as text in every spreadsheet app,
+    /// which a localised date does not.
+    static func isoDay(_ d: Date?) -> String {
+        guard let d else { return "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: d)
     }
 
     static func dateRange(_ a: Date?, _ b: Date?) -> String {

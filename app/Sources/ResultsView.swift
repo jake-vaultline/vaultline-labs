@@ -8,21 +8,30 @@ struct ResultsView: View {
     let isScanning: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: VL.Space.xl) {
-                header
-                statRow
-                capacity
-                duplicates
-                categoryBreakdown
-                probeBreakdown
-                cameras
-                extensionBreakdown
-                twoColumn
-                attention
-            }
-            .padding(VL.Space.l)
+        ScrollView { sections }
+    }
+
+    /// Section order matches `ReportBuilder.html` exactly. Someone reads the
+    /// window, exports the report, and reads the same thing in the same order.
+    ///
+    /// Split out of `body` so it can be rendered without a scroll view, which
+    /// is the only way to get a whole-window image out of `ImageRenderer`.
+    var sections: some View {
+        VStack(alignment: .leading, spacing: VL.Space.xl) {
+            header
+            statRow
+            capacity
+            duplicates
+            categoryBreakdown
+            probeBreakdown
+            frameRates
+            extensionBreakdown
+            cameras
+            mediaByYear
+            twoColumn
+            attention
         }
+        .padding(VL.Space.l)
     }
 
     // MARK: Header
@@ -89,12 +98,13 @@ struct ResultsView: View {
             VLStat(label: "Folders",
                    value: Fmt.count(snapshot.foldersScanned),
                    note: snapshot.isComplete ? "\(Fmt.count(snapshot.emptyFolders.count)) empty" : "—")
-            VLStat(label: "Verified duplicate space",
+            VLStat(label: "Reclaimable",
                    value: snapshot.dupes.recoverableBytes > 0
                        ? Fmt.bytes(snapshot.dupes.recoverableBytes)
                        : (snapshot.dupes.isRunning ? "…" : "—"),
                    note: snapshot.dupes.duplicateFileCount > 0
-                       ? "\(Fmt.count(snapshot.dupes.duplicateFileCount)) extra copies" : "files 4 MB and larger",
+                       ? "\(Fmt.count(snapshot.dupes.duplicateFileCount)) verified extra copies"
+                       : "files 4 MB and larger",
                    tint: snapshot.dupes.recoverableBytes > 0 ? VL.amber : VL.ink)
         }
     }
@@ -138,52 +148,81 @@ struct ResultsView: View {
                     VStack(alignment: .leading, spacing: VL.Space.s) {
                         SectionLabel("Codecs")
                         VStack(spacing: VL.Space.s) {
-                            ForEach(p.topCodecs(6)) { row in
+                            ForEach(p.topCodecs(Show.codecs)) { row in
                                 Bar(label: row.name, detail: Fmt.bytes(row.bytes),
                                     fraction: p.codecBytesTotal > 0
                                         ? Double(row.bytes) / Double(p.codecBytesTotal) : 0,
                                     trailing: Fmt.percent(row.bytes, of: p.codecBytesTotal))
                             }
                         }
+                        Remainder(shown: min(Show.codecs, p.bytesByCodec.count),
+                                  total: p.bytesByCodec.count, noun: "codec")
                     }
                 }
                 if !p.clipsByResolution.isEmpty {
                     VStack(alignment: .leading, spacing: VL.Space.s) {
                         SectionLabel("Resolutions")
                         VStack(spacing: VL.Space.s) {
-                            ForEach(p.topResolutions(6)) { row in
+                            ForEach(p.topResolutions(Show.resolutions)) { row in
                                 Bar(label: row.name, detail: "\(Fmt.count(row.count)) clips",
                                     fraction: p.resolutionClipsTotal > 0
                                         ? Double(row.count) / Double(p.resolutionClipsTotal) : 0,
                                     trailing: Fmt.percent(row.count, of: p.resolutionClipsTotal))
                             }
                         }
+                        Remainder(shown: min(Show.resolutions, p.clipsByResolution.count),
+                                  total: p.clipsByResolution.count, noun: "resolution")
                     }
                 }
             }
         }
     }
 
+    /// The report has had this section since 0.1. The window never did, so
+    /// anyone reading the window saw strictly less than the file they emailed.
+    @ViewBuilder
+    private var frameRates: some View {
+        let rates = snapshot.probe.topFrameRates(Show.frameRates)
+        if !rates.isEmpty {
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Frame rates")
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(rates) { r in
+                        Row(name: r.name,
+                            detail: Fmt.percent(r.count, of: snapshot.probe.frameRateClipsTotal),
+                            value: "\(Fmt.count(r.count)) \(r.count == 1 ? "clip" : "clips")")
+                    }
+                }
+                Remainder(shown: rates.count, total: snapshot.probe.clipsByFrameRate.count,
+                          noun: "rate")
+            }
+        }
+    }
+
     @ViewBuilder
     private var cameras: some View {
-        let cams = snapshot.probe.topCameras(8)
+        let cams = snapshot.probe.topCameras(Show.cameras)
         if !cams.isEmpty {
             VStack(alignment: .leading, spacing: VL.Space.s) {
                 SectionLabel("Cameras detected")
-                HStack(alignment: .top, spacing: VL.Space.s) {
-                    ForEach(Array(cams.prefix(5))) { c in
+                // A fixed row of five silently dropped every camera past the
+                // fifth; the report listed ten of the same set.
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: VL.Space.s)],
+                          alignment: .leading, spacing: VL.Space.s) {
+                    ForEach(cams) { c in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(c.name).font(VL.bodyMed).lineLimit(1)
-                            Text(Fmt.files(c.count))
+                            Text(c.name).font(VL.bodyMed).lineLimit(1).truncationMode(.middle)
+                            Text("\(Fmt.files(c.count)) · \(Fmt.bytes(c.bytes))")
                                 .font(.system(size: 10.5)).foregroundStyle(VL.inkFaint).monospacedDigit()
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 11).padding(.vertical, 8)
                         .background(VL.slate, in: RoundedRectangle(cornerRadius: VL.Radius.small))
                         .overlay(RoundedRectangle(cornerRadius: VL.Radius.small)
                             .strokeBorder(VL.ruleSoft, lineWidth: 1))
                     }
-                    Spacer(minLength: 0)
                 }
+                Remainder(shown: cams.count, total: snapshot.probe.byCamera.count, noun: "camera")
             }
         }
     }
@@ -192,12 +231,49 @@ struct ResultsView: View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
             SectionLabel("Top formats")
             VStack(spacing: VL.Space.s) {
-                ForEach(snapshot.topExtensions(8)) { row in
+                ForEach(snapshot.topExtensions(Show.extensions)) { row in
                     Bar(label: ".\(row.name)",
                         detail: "\(Fmt.files(row.count)) · \(Fmt.bytes(row.bytes))",
                         fraction: fraction(row.bytes),
                         trailing: Fmt.percent(row.bytes, of: snapshot.bytesScanned))
                 }
+            }
+            Remainder(shown: min(Show.extensions, snapshot.byExtension.count),
+                      total: snapshot.byExtension.count, noun: "extension")
+        }
+    }
+
+    /// Also report-only until now. The caveat line is the point of the section:
+    /// on a cloned drive with no embedded dates every clip lands in the copy
+    /// year, and a confidently wrong timeline is worse than no timeline.
+    @ViewBuilder
+    private var mediaByYear: some View {
+        let years = snapshot.probe.bytesByYear.sorted { $0.key < $1.key }.suffix(Show.years)
+        if years.count > 1 {
+            let peak = years.map(\.value).max() ?? 1
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Media by year")
+                HStack(alignment: .bottom, spacing: 6) {
+                    ForEach(Array(years), id: \.key) { y in
+                        VStack(spacing: 4) {
+                            Spacer(minLength: 0)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(VL.blue)
+                                .frame(height: max(3, CGFloat(Double(y.value) / Double(peak)) * 76))
+                            Text(Fmt.bytes(y.value))
+                                .font(.system(size: 9)).foregroundStyle(VL.inkDim)
+                                .lineLimit(1).minimumScaleFactor(0.7)
+                            Text(String(y.key))
+                                .font(.system(size: 10)).foregroundStyle(VL.inkFaint).monospacedDigit()
+                        }
+                    }
+                }
+                .frame(height: 118)
+                Text(snapshot.probe.usedEmbeddedDates
+                     ? "From embedded capture dates."
+                     : "From file modification dates. Little of this drive's media carried an embedded capture date, so copied files may appear in the wrong year.")
+                    .font(VL.small).foregroundStyle(VL.inkFaint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -207,7 +283,7 @@ struct ResultsView: View {
             VStack(alignment: .leading, spacing: VL.Space.s) {
                 SectionLabel("Largest folders")
                 VStack(alignment: .leading, spacing: 5) {
-                    ForEach(snapshot.largestFolders.prefix(10)) { f in
+                    ForEach(snapshot.largestFolders.prefix(Show.largestFolders)) { f in
                         Row(name: f.name, detail: Fmt.files(f.fileCount),
                             value: Fmt.bytes(f.bytes), path: f.path)
                     }
@@ -216,10 +292,15 @@ struct ResultsView: View {
             VStack(alignment: .leading, spacing: VL.Space.s) {
                 SectionLabel("Largest files")
                 VStack(alignment: .leading, spacing: 5) {
-                    ForEach(snapshot.largestFiles.prefix(10)) { f in
+                    ForEach(snapshot.largestFiles.prefix(Show.largestFiles)) { f in
                         Row(name: f.name, detail: f.category.displayName, value: Fmt.bytes(f.size),
                             path: f.path)
                     }
+                }
+                if snapshot.largestFiles.count > Show.largestFiles {
+                    Text("The full ranking of the \(Fmt.count(snapshot.largestFiles.count)) largest files is in the CSV export.")
+                        .font(VL.small).foregroundStyle(VL.inkFaint)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -244,15 +325,20 @@ struct ResultsView: View {
                     }
                 } else {
                     VStack(spacing: 1) {
-                        ForEach(d.groups.prefix(25)) { g in
+                        ForEach(d.groups.prefix(Show.duplicateGroups)) { g in
                             DuplicateGroupRow(group: g, rootPath: snapshot.rootPath)
                         }
                     }
                 }
-                if d.groups.count > 25 {
-                    let rest = d.groups.count - 25
-                    Text("+ \(Fmt.count(rest)) more \(rest == 1 ? "group" : "groups") — see the exported report for the full list")
+                // This used to say "see the exported report for the full list"
+                // while the report showed ten groups to the window's twenty-five.
+                // Both surfaces now show the same set, and the CSV is the one
+                // place that genuinely holds every group.
+                if d.groups.count > Show.duplicateGroups {
+                    let rest = d.groups.count - Show.duplicateGroups
+                    Text("\(Fmt.count(rest)) further \(rest == 1 ? "group" : "groups") not shown. Every group and every path is in the CSV export.")
                         .font(VL.small).foregroundStyle(VL.inkFaint)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if d.isPaused {
                     Text("\(Fmt.files(d.remainingCandidateFiles)) still need verification. Continue after the media analysis finishes; verified totals above remain exact.")
@@ -292,17 +378,43 @@ struct ResultsView: View {
         return "The completed scan found no exact content matches among files 4 MB and larger."
     }
 
-    // Duplicates has its own full section above (`duplicates`), so this is
-    // only the media that AVFoundation opened and got nothing usable from —
-    // confirmed real against actual RED .r3d footage, not hypothetical.
+    // The report's "Worth a look" block, in the window. Duplicates have their
+    // own full section above so they are not repeated here; everything else the
+    // report raises is raised here too, in the same order and the same words.
+    //
+    // NOTE: "files with no verified second copy" is deliberately absent, here
+    // and in the report. A single-drive scan cannot know what exists elsewhere.
+    // See ReportBuilder.attentionBlock and report/report-spec.md §5.
     @ViewBuilder
     private var attention: some View {
-        let u = snapshot.probe.unreadable
-        if u.count > 0 {
-            VLNotice(title: "\(Fmt.files(u.count)) couldn't be read for codec, resolution or duration") {
-                Text("\(Fmt.bytes(u.bytes)) of what's counted as video/audio above has no metadata behind it — often RAW formats like R3D or BRAW that need the camera vendor's own software installed to decode.")
-                    .font(VL.small).foregroundStyle(VL.inkDim)
-                    .fixedSize(horizontal: false, vertical: true)
+        let p = snapshot.probe
+        let proxy = p.estimatedProxyBytes
+        let other = snapshot.byCategory[.other]
+        let unrecognised = (other?.bytes ?? 0) > snapshot.bytesScanned / 20 ? other?.bytes ?? 0 : 0
+
+        if !snapshot.emptyFolders.isEmpty || proxy > 0 || unrecognised > 0 || p.unreadable.count > 0 {
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Worth a look")
+                if !snapshot.emptyFolders.isEmpty {
+                    VLNotice(title: "\(Fmt.count(snapshot.emptyFolders.count)) empty folders") {
+                        NoticeBody("Left behind by moves or aborted offloads. Every path is listed in the CSV export.")
+                    }
+                }
+                if proxy > 0 {
+                    VLNotice(title: "Proxies for this drive would need about \(Fmt.bytes(proxy))") {
+                        NoticeBody("Rough estimate for everything 4K and above. An order of magnitude, not a quote.")
+                    }
+                }
+                if unrecognised > 0 {
+                    VLNotice(title: "\(Fmt.bytes(unrecognised)) in unrecognised file types") {
+                        NoticeBody("Caches, renders, archives or formats this tool doesn't classify yet.")
+                    }
+                }
+                if p.unreadable.count > 0 {
+                    VLNotice(title: "\(Fmt.files(p.unreadable.count)) couldn't be read for codec, resolution or duration") {
+                        NoticeBody("\(Fmt.bytes(p.unreadable.bytes)) of what's counted as video/audio above has no metadata behind it. Usually RAW formats like R3D or BRAW that need the camera vendor's own software installed to decode.")
+                    }
+                }
             }
         }
     }
@@ -313,6 +425,36 @@ struct ResultsView: View {
 }
 
 // MARK: - Pieces
+
+/// The body line of a "Worth a look" notice. Same treatment every time, so the
+/// four of them read as one list rather than four ad hoc panels.
+private struct NoticeBody: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(VL.small).foregroundStyle(VL.inkDim)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Says what a ranked list left out. The report prints the same sentence, from
+/// `ReportBuilder.more(shown:of:noun:)`.
+private struct Remainder: View {
+    let shown: Int
+    let total: Int
+    let noun: String
+
+    var body: some View {
+        if total > shown {
+            let rest = total - shown
+            Text("\(Fmt.count(rest)) further \(rest == 1 ? noun : noun + "s") not shown. All of them are in the CSV export.")
+                .font(VL.small).foregroundStyle(VL.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
 
 private struct Bar: View {
     let label: String

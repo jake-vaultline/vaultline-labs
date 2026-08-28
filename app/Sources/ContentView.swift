@@ -88,7 +88,7 @@ struct ContentView: View {
             .disabled(engine.snapshot.filesScanned == 0 || exporting)
             .help(engine.snapshot.probe.isComplete
                   ? "Save the full report"
-                  : "Media is still being read — the report will note what was covered")
+                  : "Media is still being read. The report will note what was covered")
         }
         .padding(.horizontal, VL.Space.m)
         .frame(height: 52)
@@ -98,11 +98,11 @@ struct ContentView: View {
     private var busyLabel: String {
         let d = engine.snapshot.dupes
         if d.isRunning {
-            return "Verifying duplicates — \(Fmt.count(d.candidatesChecked)) of \(Fmt.count(d.candidatesTotal)) candidates · \(Fmt.bytes(d.bytesRead)) read"
+            return "Verifying duplicates · \(Fmt.count(d.candidatesChecked)) of \(Fmt.count(d.candidatesTotal)) candidates · \(Fmt.bytes(d.bytesRead)) read"
         }
         let p = engine.snapshot.probe
         if p.isRunning {
-            return "Reading media — \(Fmt.count(p.filesProbed)) of \(Fmt.count(p.filesToProbe))"
+            return "Reading media · \(Fmt.count(p.filesProbed)) of \(Fmt.count(p.filesToProbe))"
         }
         return "Scanning…"
     }
@@ -122,7 +122,7 @@ struct ContentView: View {
     private func export(_ fmt: Exporter.Format) {
         exporting = true
         Task {
-            do { try await Exporter.export(engine.snapshot, as: fmt) }
+            do { try await Exporter.export(engine.snapshot, as: fmt, inventory: engine.inventory) }
             catch { exportError = error.localizedDescription }
             exporting = false
         }

@@ -24,6 +24,7 @@ enum ReportBuilder {
         body += typeBlock(s)
         body += codecBlock(s)
         body += frameRateBlock(s)
+        body += formatBlock(s)
         body += cameraBlock(s)
         body += yearBlock(s)
         body += foldersBlock(s)
@@ -32,7 +33,7 @@ enum ReportBuilder {
 
         var out = "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n"
         out += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n"
-        out += "<title>Drive Report — \(esc(s.volumeName)) · Vaultline</title>\n"
+        out += "<title>\(esc(s.volumeName)) Drive Report · Vaultline</title>\n"
         out += "<style>\(css)</style></head>\n<body><div class=\"page\">\n"
 
         out += "<header class=\"mast\"><div class=\"wordmark\">"
@@ -61,9 +62,11 @@ enum ReportBuilder {
                     "\(Fmt.count(s.projectFiles.count)) project files")
         out += tile("Footage", duration, "across \(Fmt.count(clips)) clips")
         out += tile("Date range", Fmt.dateRange(s.earliest, s.latest), dateSource)
+        // "Verified duplicate space" wrapped onto two lines in the tile header
+        // and knocked this tile's note out of line with the other three.
         if s.dupes.recoverableBytes > 0 {
-            out += tile("Verified duplicate space", Fmt.bytes(s.dupes.recoverableBytes),
-                        "\(Fmt.count(s.dupes.duplicateFileCount)) extra copies")
+            out += tile("Reclaimable", Fmt.bytes(s.dupes.recoverableBytes),
+                        "\(Fmt.count(s.dupes.duplicateFileCount)) verified extra copies")
         } else {
             out += tile("Largest folder", Fmt.bytes(s.largestFolders.first?.bytes ?? 0),
                         s.largestFolders.first?.name ?? "—")
@@ -102,43 +105,68 @@ enum ReportBuilder {
         let p = s.probe
         guard !p.bytesByCodec.isEmpty || !p.clipsByResolution.isEmpty else { return "" }
 
-        let codecs = p.topCodecs(6).map {
+        // Every bar carries its own figure. A percentage alone does not tell a
+        // producer whether "17% H.264" is four clips or four hundred.
+        let codecs = p.topCodecs(Show.codecs).map {
             bar(label: $0.name, fraction: frac($0.bytes, p.codecBytesTotal),
-                trailing: Fmt.percent($0.bytes, of: p.codecBytesTotal), sub: nil)
+                trailing: Fmt.percent($0.bytes, of: p.codecBytesTotal), sub: Fmt.bytes($0.bytes))
         }.joined()
 
-        let res = p.topResolutions(6).map {
+        let res = p.topResolutions(Show.resolutions).map {
             bar(label: $0.name,
                 fraction: Double($0.count) / Double(max(1, p.resolutionClipsTotal)),
-                trailing: Fmt.percent($0.count, of: p.resolutionClipsTotal), sub: nil)
+                trailing: Fmt.percent($0.count, of: p.resolutionClipsTotal),
+                sub: "\(Fmt.count($0.count)) \($0.count == 1 ? "clip" : "clips")")
         }.joined()
 
         var out = "<section class=\"cols2\">"
         if !codecs.isEmpty {
             out += "<div><h2>Codecs</h2><p class=\"lede\">Share of media storage.</p>"
-                 + "<div class=\"bars\">\(codecs)</div></div>"
+                 + "<div class=\"bars\">\(codecs)</div>"
+                 + more(shown: min(Show.codecs, p.bytesByCodec.count), of: p.bytesByCodec.count,
+                        noun: "codec") + "</div>"
         }
         if !res.isEmpty {
             out += "<div><h2>Resolutions</h2><p class=\"lede\">Share of clips.</p>"
-                 + "<div class=\"bars\">\(res)</div></div>"
+                 + "<div class=\"bars\">\(res)</div>"
+                 + more(shown: min(Show.resolutions, p.clipsByResolution.count),
+                        of: p.clipsByResolution.count, noun: "resolution") + "</div>"
         }
         return out + "</section>\n"
     }
 
+    /// Extensions, not categories. "Video is 96%" is the shape of the drive;
+    /// ".mov is 96% and .mp4 is 3%" is the thing an editor can act on. The app
+    /// window has always shown this; the report did not.
+    private static func formatBlock(_ s: ScanSnapshot) -> String {
+        let rows = s.topExtensions(Show.extensions)
+        guard rows.count > 1 else { return "" }
+        let bars = rows.map {
+            bar(label: ".\($0.name)", fraction: frac($0.bytes, s.bytesScanned),
+                trailing: Fmt.percent($0.bytes, of: s.bytesScanned),
+                sub: "\(Fmt.files($0.count)) · \(Fmt.bytes($0.bytes))")
+        }.joined()
+        return "<section><h2>Top formats</h2><p class=\"lede\">Share of scanned data by file "
+             + "extension.</p><div class=\"bars\">\(bars)</div>"
+             + more(shown: rows.count, of: s.byExtension.count, noun: "extension") + "</section>\n"
+    }
+
     private static func frameRateBlock(_ s: ScanSnapshot) -> String {
-        let rates = s.probe.topFrameRates(8)
+        let rates = s.probe.topFrameRates(Show.frameRates)
         guard !rates.isEmpty else { return "" }
         let rows = rates.map {
             "<tr><td>\(esc($0.name))</td><td class=\"n\">\(Fmt.count($0.count))</td>"
             + "<td class=\"n\">\(Fmt.percent($0.count, of: s.probe.frameRateClipsTotal))</td></tr>"
         }.joined()
         return "<section><h2>Frame rates</h2><table><thead><tr><th>Rate</th>"
-             + "<th style=\"text-align:right\">Clips</th><th style=\"text-align:right\">Share</th>"
-             + "</tr></thead><tbody>\(rows)</tbody></table></section>\n"
+             + "<th class=\"n\">Clips</th><th class=\"n\">Share</th>"
+             + "</tr></thead><tbody>\(rows)</tbody></table>"
+             + more(shown: rates.count, of: s.probe.clipsByFrameRate.count, noun: "rate")
+             + "</section>\n"
     }
 
     private static func cameraBlock(_ s: ScanSnapshot) -> String {
-        let cams = s.probe.topCameras(10)
+        let cams = s.probe.topCameras(Show.cameras)
         guard !cams.isEmpty else { return "" }
         let chips = cams.map {
             "<div class=\"cam\"><b>\(esc($0.name))</b>"
@@ -146,7 +174,9 @@ enum ReportBuilder {
         }.joined()
         return "<section><h2>Cameras detected</h2><p class=\"lede\">"
              + "Read from clip metadata, sidecars and card structure.</p>"
-             + "<div class=\"cams\">\(chips)</div></section>\n"
+             + "<div class=\"cams\">\(chips)</div>"
+             + more(shown: cams.count, of: s.probe.byCamera.count, noun: "camera")
+             + "</section>\n"
     }
 
     private static func yearBlock(_ s: ScanSnapshot) -> String {
@@ -165,7 +195,7 @@ enum ReportBuilder {
         // is worse than no timeline at all.
         let source = s.probe.usedEmbeddedDates
             ? "From embedded capture dates."
-            : "From file modification dates — little of this drive's media carried an embedded capture date, so copied files may appear in the wrong year."
+            : "From file modification dates. Little of this drive's media carried an embedded capture date, so copied files may appear in the wrong year."
 
         return "<section><h2>Media by year</h2><p class=\"lede\">\(source)</p>"
              + "<div class=\"years\" style=\"grid-template-columns:repeat(\(years.count),1fr)\">"
@@ -174,44 +204,61 @@ enum ReportBuilder {
 
     private static func foldersBlock(_ s: ScanSnapshot) -> String {
         guard !s.largestFolders.isEmpty else { return "" }
+        let shown = Array(s.largestFolders.prefix(Show.largestFolders))
         let peak = s.largestFolders.first?.bytes ?? 1
-        let rows = s.largestFolders.prefix(10).map { f -> String in
+        let rows = shown.map { f -> String in
             let w = Int(Double(f.bytes) / Double(max(1, peak)) * 100)
-            return "<tr><td>\(esc(f.name))<div class=\"path\">\(esc(rel(f.path, s.rootPath)))</div>"
+            return "<tr><td><div class=\"nm\">\(esc(f.name))</div>"
+                 + "<div class=\"path\">\(esc(rel(f.path, s.rootPath)))</div>"
                  + "<div class=\"minibar\"><i style=\"width:\(w)%\"></i></div></td>"
                  + "<td class=\"n\">\(Fmt.count(f.fileCount))</td>"
                  + "<td class=\"n\">\(Fmt.bytes(f.bytes))</td></tr>"
         }.joined()
-        return "<section><h2>Largest folders</h2><table><thead><tr><th>Folder</th>"
-             + "<th style=\"text-align:right\">Files</th><th style=\"text-align:right\">Size</th>"
+        return "<section><h2>Largest folders</h2><p class=\"lede\">Recursive size, so a folder "
+             + "includes everything beneath it. Ranked from \(Fmt.count(s.foldersScanned)) folders "
+             + "scanned.</p><table><thead><tr><th>Folder</th>"
+             + "<th class=\"n\">Files</th><th class=\"n\">Size</th>"
              + "</tr></thead><tbody>\(rows)</tbody></table></section>\n"
     }
 
     private static func filesBlock(_ s: ScanSnapshot) -> String {
         guard !s.largestFiles.isEmpty else { return "" }
-        let rows = s.largestFiles.prefix(10).map { f -> String in
+        let shown = Array(s.largestFiles.prefix(Show.largestFiles))
+        let rows = shown.map { f -> String in
             let dir = rel((f.path as NSString).deletingLastPathComponent, s.rootPath)
-            return "<tr><td>\(esc(f.name))<div class=\"path\">\(esc(dir))</div></td>"
+            return "<tr><td><div class=\"nm\">\(esc(f.name))</div>"
+                 + "<div class=\"path\">\(esc(dir))</div></td>"
                  + "<td class=\"n\">\(f.category.displayName)</td>"
                  + "<td class=\"n\">\(Fmt.bytes(f.size))</td></tr>"
         }.joined()
+        let note = s.largestFiles.count > shown.count
+            ? "<div class=\"more\">The full ranking of the "
+              + "\(Fmt.count(s.largestFiles.count)) largest files is in the CSV export.</div>"
+            : ""
         return "<section><h2>Largest files</h2><table><thead><tr><th>File</th>"
-             + "<th style=\"text-align:right\">Type</th><th style=\"text-align:right\">Size</th>"
-             + "</tr></thead><tbody>\(rows)</tbody></table></section>\n"
+             + "<th class=\"n\">Type</th><th class=\"n\">Size</th>"
+             + "</tr></thead><tbody>\(rows)</tbody></table>\(note)</section>\n"
     }
 
     private static func duplicatesBlock(_ s: ScanSnapshot) -> String {
         let d = s.dupes
         guard d.candidatesTotal > 0 || d.isComplete || d.isRunning || d.isPaused || d.wasCancelled else { return "" }
-        let rows = d.groups.prefix(10).map { g -> String in
-            let others = g.paths.dropFirst().map { rel($0, s.rootPath) }.joined(separator: "\n")
-            return "<tr><td>\(esc(g.name))<div class=\"path\">\(esc(rel(g.paths[0], s.rootPath)))</div>"
-                 + "<div class=\"path\">+ \(g.paths.count - 1) more: \(esc(others))</div></td>"
+        let shown = Array(d.groups.prefix(Show.duplicateGroups))
+        let rows = shown.map { g -> String in
+            // Every copy on its own line. Run together on one line they were
+            // unreadable, and this table is the one someone acts on.
+            let others = g.paths.dropFirst().map {
+                "<div class=\"path\">\(esc(rel($0, s.rootPath)))</div>"
+            }.joined()
+            return "<tr><td><div class=\"nm\">\(esc(g.name))</div>"
+                 + "<div class=\"path\">\(esc(rel(g.paths[0], s.rootPath)))</div>\(others)</td>"
                  + "<td class=\"n\">\(g.paths.count)×</td>"
                  + "<td class=\"n\">\(Fmt.bytes(g.recoverable))</td></tr>"
         }.joined()
 
-        var lede = "Files 4 MB and larger. Every reported group matched by complete SHA-256 content hash; verify paths before deleting anything."
+        var lede = "\(Fmt.count(d.groups.count)) exact-content \(d.groups.count == 1 ? "group" : "groups"), "
+                 + "\(Fmt.bytes(d.recoverableBytes)) reclaimable. Files 4 MB and larger, every group "
+                 + "matched by complete SHA-256 content hash. Verify paths before deleting anything."
         if d.isPaused || d.remainingCandidateFiles > 0 {
             lede += " \(Fmt.files(d.remainingCandidateFiles)) still require verification and are excluded from these totals."
         }
@@ -221,9 +268,14 @@ enum ReportBuilder {
         if d.wasCancelled {
             lede += " Verification was cancelled; \(Fmt.files(d.cancelledFiles)) were unfinished and excluded."
         }
+        let trimmed = d.groups.count > shown.count
+            ? "<div class=\"more\">Showing the \(Fmt.count(shown.count)) largest of "
+              + "\(Fmt.count(d.groups.count)) groups. Every group and every path is in the "
+              + "CSV export.</div>"
+            : ""
         let table = rows.isEmpty
             ? "<div class=\"att\"><div class=\"it\"><div><b>No verified duplicate groups in the completed scope.</b><span>Potential and incomplete candidates are never counted as reclaimable.</span></div></div></div>"
-            : "<table><thead><tr><th>File</th><th style=\"text-align:right\">Copies</th><th style=\"text-align:right\">Reclaimable</th></tr></thead><tbody>\(rows)</tbody></table>"
+            : "<table><thead><tr><th>File</th><th class=\"n\">Copies</th><th class=\"n\">Reclaimable</th></tr></thead><tbody>\(rows)</tbody></table>\(trimmed)"
         return "<section><h2>Verified duplicates</h2><p class=\"lede\">\(lede)</p>"
              + table + "</section>\n"
     }
@@ -233,13 +285,13 @@ enum ReportBuilder {
 
         if s.dupes.recoverableBytes > 0 {
             items.append(item(
-                "\(Fmt.count(s.dupes.duplicateFileCount)) verified extra copies — \(Fmt.bytes(s.dupes.recoverableBytes)) reclaimable",
+                "\(Fmt.count(s.dupes.duplicateFileCount)) verified extra copies, \(Fmt.bytes(s.dupes.recoverableBytes)) reclaimable",
                 "Across \(Fmt.count(s.dupes.groups.count)) exact-content groups. Check paths before deleting."))
         }
         if !s.emptyFolders.isEmpty {
             items.append(item(
                 "\(Fmt.count(s.emptyFolders.count)) empty folders",
-                "Left behind by moves or aborted offloads."))
+                "Left behind by moves or aborted offloads. Every path is listed in the CSV export."))
         }
         let proxy = s.probe.estimatedProxyBytes
         if proxy > 0 {
@@ -255,7 +307,7 @@ enum ReportBuilder {
         if s.probe.unreadable.count > 0 {
             items.append(item(
                 "\(Fmt.files(s.probe.unreadable.count)) couldn't be read for codec, resolution or duration",
-                "\(Fmt.bytes(s.probe.unreadable.bytes)) counted as video/audio above has no metadata behind it — often RAW formats like R3D or BRAW that need the camera vendor's own software installed."))
+                "\(Fmt.bytes(s.probe.unreadable.bytes)) counted as video/audio above has no metadata behind it. Usually RAW formats like R3D or BRAW that need the camera vendor's own software installed."))
         }
         // NOTE: "files with no verified second copy" is deliberately absent.
         // A single-drive scan cannot know what exists elsewhere, and claiming it
@@ -268,16 +320,14 @@ enum ReportBuilder {
 
     private static func footer(_ s: ScanSnapshot) -> String {
         var out = "<footer class=\"foot\">"
-        out += "<div class=\"q\">The duplicate number is one storage decision. The workflow around it is the larger system.</div>"
-        out += "<div class=\"p\">A $499 Media Operations Blueprint maps the storage, ingest, archive, search and handoff changes worth making next—without assuming you need new software or more capacity. "
+        out += "<div class=\"q\">Finding the duplicates is the easy half. Knowing why they keep appearing is the part that changes next quarter.</div>"
+        out += "<div class=\"p\">The Media Operations Blueprint is a written read of how footage actually moves through your team, from card to archive to the search three years later, and a plan for what to change first. It starts from the workflow you already have rather than from software you would have to buy. "
         out += "<a class=\"cta\" href=\"https://www.vaultlinesolutions.com/offers/media-operations-blueprint?entry_context=duplicate-finder-report\">See the Media Operations Blueprint →</a></div>"
         out += "<div class=\"r\"><span class=\"t\">"
         out += img("report-icon-white", cls: "", alt: "")
-        out += "Custom software for serious footage libraries.</span>"
-        out += "<span class=\"s\">vaultlinesolutions.com</span></div>"
+        out += "Custom software for serious footage libraries.</span></div>"
         out += "<div class=\"r\" style=\"border:0;padding-top:8px;margin-top:2px\">"
-        out += "<span class=\"s\">Generated by Vaultline Labs Drive Inspector \(appVersion) · "
-        out += "scanned locally, never uploaded</span>"
+        out += "<span class=\"s\">Generated by Vaultline Labs Drive Inspector \(appVersion)</span>"
         out += "<span class=\"s\">\(esc(s.rootPath))</span></div></footer>"
         return out
     }
@@ -294,6 +344,15 @@ enum ReportBuilder {
         + "stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M8 1.6 15 14H1L8 1.6Z\"/>"
         + "<path d=\"M8 6.4v3.4\"/><circle cx=\"8\" cy=\"11.8\" r=\".6\" fill=\"currentColor\"/>"
         + "</svg><div><b>\(esc(title))</b><span>\(esc(detail))</span></div></div>"
+    }
+
+    /// Names what a ranked list left out, rather than stopping silently at the
+    /// limit and reading as the complete answer. Empty when nothing was cut.
+    private static func more(shown: Int, of total: Int, noun: String) -> String {
+        guard total > shown else { return "" }
+        let rest = total - shown
+        return "<div class=\"more\">\(Fmt.count(rest)) further "
+             + "\(rest == 1 ? noun : noun + "s") not shown. All of them are in the CSV export.</div>"
     }
 
     private static func bar(label: String, fraction: Double, trailing: String, sub: String?) -> String {
