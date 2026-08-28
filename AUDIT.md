@@ -157,6 +157,15 @@ destination. Form-field reorder and removal controls are persistent and accessib
 These paths pass focused regressions, the full native suite, Release static analysis, and the exact
 package checks above; no new visible UI-exercise claim is made for them.
 
+## Physical external-destination exercise
+
+The exact build 16 transfer engine copied a disposable 64 MB source file to the attached 2 TB
+physical external `SANDBOX-VOLUME-01` test drive, synchronized and read the destination back,
+verified xxHash64, preserved the source modification time, and confirmed the source bytes were
+unchanged. A second run reported the file already verified and copied zero bytes. The uniquely named
+external test folder was removed afterward. This proves physical external-destination I/O; no
+physical camera card or live cable disconnect/reconnect was exercised.
+
 ## Standards correction
 
 The inherited manifest writer incorrectly described an offload as `in-place`, labeled initial
@@ -166,6 +175,6 @@ than inventing one, writes destination-relative paths, and never replaces an exi
 
 ## Remaining release boundaries
 
-Before public distribution: independent exact-diff review, a physical-card/external-volume exercise
-including a real cable disconnect, Developer ID signing, notarization/stapling, public hosting, and
-a real team's configuration. Those are not claims made by this receipt.
+Before public distribution: independent exact-diff review, a physical camera-card exercise including
+a real destination-cable disconnect/reconnect, Developer ID signing, notarization/stapling, public
+hosting, and a real team's configuration. Those are not claims made by this receipt.

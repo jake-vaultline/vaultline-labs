@@ -78,10 +78,13 @@ during transfer, supports jobs directly under the selected destination when no f
 is configured, and makes form-field organization controls persistently accessible.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
-and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external
-drive, and its existing GUI session was locked against remote input, so a clean-Mac UI offload and
-physical-media behavior remain `not_run`. VLP-415 still requires independent exact-diff review
-before acceptance. Physical-card qualification, Developer ID signing, notarization, public download hosting, website funnel,
+and launch checks on `VL-Mini-02` running macOS 26.6.2. Separately, the exact transfer engine copied,
+read back, and verified a disposable 64 MB file on the attached 2 TB physical external
+`SANDBOX-VOLUME-01`, preserved its modification time and source bytes, then reran with zero bytes
+rewritten. The clean Mac had no physical card or external drive, and its existing GUI session was
+locked against remote input, so a clean-Mac UI offload, physical camera card, and live cable
+disconnect/reconnect remain `not_run`. VLP-415 still requires independent exact-diff review before
+acceptance. Physical-card qualification, Developer ID signing, notarization, public download hosting, website funnel,
 campaign activation, production/client deployment, and a real team's configuration are separate
 release-boundary work.
 
