@@ -20,11 +20,13 @@ task branch includes:
 - safe copying of an actual team-supplied Premiere template under a derived name, with no invented
   project files and no overwrite;
 - copy/never-move, never-delete, never-overwrite, staged writes, read-back checksum, MHL, sidecar,
-  safe restart, interruption cleanup, and explicit partial-result behavior;
+  safe restart, interruption cleanup, explicit partial-result behavior, and deterministic
+  destination-disconnect/reconnect coverage;
 - truthful per-destination receipt wording when MHL is written, disabled, or cannot be written,
   with output problems separated from media-verification language;
 - off-main, cancellable card discovery with an explicit scanning state, immediate cancellation
-  when the operator changes sources, and stale-result protection;
+  when the operator changes sources, stale-result protection, and direct selection of camera
+  package folders such as RED `.RDC` clips;
 - a reusable example configuration and customization/QA runbook; and
 - focused tests for defaults, package round trips, token rendering, validation, structure creation,
   template creation/collision behavior, and plan-to-output.
@@ -44,9 +46,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 41 of 41 native tests and static analysis. Its build 13 universal
+The 0.3.0 source passes 42 of 42 native tests and static analysis. Its build 14 universal
 Intel/Apple Silicon review DMG has SHA-256
-`9c9ec8d98534939d8c3538d40f85c18048ab184717543625a85ae64f7a106da1`, passes strict local
+`2250d4a47d430b1dbf7d77effa1553e95dc6a47742d4fa42178f43249a300f05`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -66,7 +68,11 @@ and final result summary, with explicit one-file and multi-file summary coverage
 source discovery and sorting off the UI actor, shows a truthful scanning state, and cancels obsolete
 work before opening the source picker. The packaged app stayed interactive on a synthetic
 500,000-file card, cancelled that scan immediately when `Change` was chosen, and published only the
-two-file replacement plan without a partial or stale result.
+two-file replacement plan without a partial or stale result. Build 14 adds a deterministic
+destination-disconnect/reconnect exercise: destination loss during a staged copy leaves no partial
+final file or changed source, and a retry after reconnection completes, verifies, and removes
+staging debris. It also makes camera-package sources directly selectable and destination removal
+persistent and accessibility-labeled.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external

@@ -247,6 +247,53 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertTrue(children.isEmpty)
     }
 
+    func testDestinationDisconnectLeavesNoFinalFileAndReconnectResumesSafely() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = Data(repeating: 0x5A, count: 8 * 1024 * 1024)
+        let source = try makeCard(in: root, data: original)
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        let disconnected = root.appendingPathComponent("DEST-DISCONNECTED", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let target = Destination(root: destination.path, label: "Field SSD", isPrimary: true)
+        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let signal = OneShot()
+
+        let (interruptedProgress, interruptedResults) = await OffloadEngine(bufferSize: 64 * 1024).run(
+            files: files,
+            destinations: [target],
+            algorithm: .xxhash64,
+            onProgress: { progress in
+                guard progress.bytesCopied > 0 else { return }
+                signal.run {
+                    try? FileManager.default.moveItem(at: destination, to: disconnected)
+                }
+            })
+
+        XCTAssertEqual(interruptedProgress.phase, .failed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: disconnected.path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: disconnected.appendingPathComponent("clip.mov").path))
+        XCTAssertEqual(try Data(contentsOf: source.appendingPathComponent("clip.mov")), original)
+        guard case .failed = interruptedResults[0].destinations[destination.path] else {
+            return XCTFail("Expected a disconnected-destination failure")
+        }
+
+        try FileManager.default.moveItem(at: disconnected, to: destination)
+        let (resumedProgress, resumedResults) = await OffloadEngine(bufferSize: 64 * 1024).run(
+            files: files,
+            destinations: [target],
+            algorithm: .xxhash64,
+            onProgress: { _ in })
+
+        XCTAssertEqual(resumedProgress.phase, .done)
+        XCTAssertEqual(resumedProgress.filesVerified, 1)
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("clip.mov")), original)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destination.appendingPathComponent(".vaultline-ingest-staging").path))
+        XCTAssertTrue(resumedResults[0].destinations[target.root]?.isVerified == true)
+    }
+
     func testUnavailableDestinationProducesFailureWithoutChangingSource() async throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

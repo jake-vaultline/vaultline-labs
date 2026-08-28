@@ -282,13 +282,15 @@ private struct DestinationRow: View {
                 VLChip(text: summary.text, tint: summary.tint)
             }
 
-            if hovering && !state.isRunning && !state.config.isManaged {
+            if !state.isRunning && !state.config.isManaged {
                 Button {
                     state.removeDestination(destination.path)
                 } label: {
                     Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
                 }
                 .buttonStyle(VLQuietButton())
+                .accessibilityLabel("Remove \(destination.label) destination")
+                .help("Remove this destination")
             }
         }
         .padding(.horizontal, VL.Space.m).padding(.vertical, 9)

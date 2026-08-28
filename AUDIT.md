@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 41 of 41 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 42 of 42 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -25,6 +25,8 @@ update checker, or network client. The app sandbox has no network client or serv
 - cooperative cancellation with no partial final file;
 - abandoned staging cleanup on restart;
 - unavailable destination failure without source mutation;
+- destination disappearance during a staged copy with no partial final file, followed by a safe
+  reconnect/retry that verifies the original source bytes and removes staging debris;
 - destination-inside-source, overlapping-destination, duplicate-output-plan, linked-folder escape,
   and insufficient-capacity rejection before copying;
 - hidden camera metadata retention while Finder, AppleDouble, Spotlight, filesystem debris, and
@@ -47,18 +49,18 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Build evidence
 
-The 0.3.0 build 13 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 14 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 13.app`
+`/Applications/Vaultline Ingest 0.3 Review 14.app`
 
 Review DMG SHA-256:
 
-`9c9ec8d98534939d8c3538d40f85c18048ab184717543625a85ae64f7a106da1`
+`2250d4a47d430b1dbf7d77effa1553e95dc6a47742d4fa42178f43249a300f05`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -128,12 +130,20 @@ camera-card and writable ExFAT destination images:
 
 ## Clean-Mac package exercise
 
-The exact build 13 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 14 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 13, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 14, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.
+
+## Build 14 operator corrections
+
+The source picker now treats file packages as directories, so camera-card package folders such as
+RED `.RDC` clips are directly selectable as ingest sources. Configurable destinations also expose
+their remove control persistently rather than only on pointer hover, with an explicit accessibility
+label and help text. These changes compiled, passed the full suite and static analysis, and are in
+the exact package above; no visible UI-exercise claim is made for them.
 
 ## Standards correction
 

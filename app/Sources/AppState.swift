@@ -136,6 +136,10 @@ final class AppState: ObservableObject {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
+        // Camera formats such as RED's .RDC are directory packages. Treating
+        // packages as folders lets an operator choose one directly instead of
+        // making the system picker disable an otherwise valid source.
+        panel.treatsFilePackagesAsDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Select"
         panel.message = "Choose the card or folder to ingest"
