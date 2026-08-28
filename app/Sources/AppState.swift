@@ -240,19 +240,31 @@ final class AppState: ObservableObject {
             var finalProgress = engineProgress
             self.results = finished
 
-            // Manifest last, and only over verified files.
+            // Manifest last, and only over verified files. Keep the exact
+            // outcome per destination so each durable text record can say
+            // what actually exists beside it instead of making a blanket
+            // claim about an optional output.
+            var manifestReceipts: [String: IngestSidecar.ManifestReceipt] = [:]
             if run.config.workflow.manifest {
                 for d in usable {
                     guard finished.contains(where: {
                         $0.destinations[d.root]?.isVerified == true
-                    }) else { continue }
+                    }) else {
+                        manifestReceipts[d.root] = .notWritten("no files verified on this destination")
+                        continue
+                    }
                     do {
-                        _ = try MHLWriter.write(files: finished, destination: d,
-                                                algorithm: algorithm, sourceName: sourceName)
+                        let url = try MHLWriter.write(
+                            files: finished, destination: d,
+                            algorithm: algorithm, sourceName: sourceName)
+                        manifestReceipts[d.root] = .written(url.lastPathComponent)
                     } catch {
+                        manifestReceipts[d.root] = .notWritten("the manifest write failed")
                         finalProgress.failures.append("Manifest → \(d.label): \(error.localizedDescription)")
                     }
                 }
+            } else {
+                for d in usable { manifestReceipts[d.root] = .disabled }
             }
 
             // The human-readable record, alongside it. Plain text on purpose —
@@ -260,12 +272,14 @@ final class AppState: ObservableObject {
             // when they find the drive in three years.
             let form = run.config.form
             if form.enabled && form.writeSidecar {
-                let body = IngestSidecar.text(
-                    fields: form.fields, answers: run.answers,
-                    sourceName: sourceName, destinations: usable, files: finished,
-                    algorithm: algorithm, progress: finalProgress)
                 for d in usable {
                     do {
+                        let body = IngestSidecar.text(
+                            fields: form.fields, answers: run.answers,
+                            sourceName: sourceName, destinations: usable, files: finished,
+                            algorithm: algorithm, progress: finalProgress,
+                            manifest: manifestReceipts[d.root]
+                                ?? .notWritten("manifest outcome unavailable"))
                         _ = try IngestSidecar.write(body, to: d, name: form.sidecarName)
                     } catch {
                         finalProgress.failures.append("Ingest record → \(d.label): \(error.localizedDescription)")

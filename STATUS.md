@@ -21,6 +21,8 @@ task branch includes:
   project files and no overwrite;
 - copy/never-move, never-delete, never-overwrite, staged writes, read-back checksum, MHL, sidecar,
   safe restart, interruption cleanup, and explicit partial-result behavior;
+- truthful per-destination receipt wording when MHL is written, disabled, or cannot be written,
+  with output problems separated from media-verification language;
 - a reusable example configuration and customization/QA runbook; and
 - focused tests for defaults, package round trips, token rendering, validation, structure creation,
   template creation/collision behavior, and plan-to-output.
@@ -40,9 +42,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 37 of 37 native tests and static analysis. Its build 8 universal
+The 0.3.0 source passes 38 of 38 native tests and static analysis. Its build 9 universal
 Intel/Apple Silicon review DMG has SHA-256
-`5d46f9fc1cd27c3ed27fcce056468e5e0d0050a3474762cc60e2c27a783f8a15`, passes strict local
+`3779adb51cac3ade717f53583e68fbed2ca3137d15c09de3c927685949dafb8d`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -52,7 +54,8 @@ also proved that configured carry-over answers survive a full quit/relaunch, whi
 blank and the automatic date remains current. Build 8 additionally completed and verified a
 12.88 GB packaged transfer, froze the visible brief during the run, preserved the original brief in
 the receipt, and reran with zero media bytes rewritten. See [AUDIT.md](AUDIT.md) for the durable
-receipt.
+receipt. Build 9 also proved through the packaged UI that disabling MHL produces a truthful
+disabled-manifest receipt and no new manifest, then restored the normal preference.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external

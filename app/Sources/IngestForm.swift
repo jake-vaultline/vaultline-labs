@@ -109,6 +109,12 @@ struct IngestFormConfig: Codable {
 
 enum IngestSidecar {
 
+    enum ManifestReceipt: Equatable {
+        case written(String)
+        case disabled
+        case notWritten(String)
+    }
+
     /// Writes the form answers and a factual record of the transfer.
     ///
     /// Everything below the form is written by the app, not typed by a person:
@@ -121,7 +127,8 @@ enum IngestSidecar {
                      destinations: [Destination],
                      files: [IngestFile],
                      algorithm: ChecksumAlgorithm,
-                     progress: OffloadProgress) -> String {
+                     progress: OffloadProgress,
+                     manifest: ManifestReceipt) -> String {
 
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH:mm"
@@ -172,7 +179,7 @@ enum IngestSidecar {
             for c in progress.conflicts.prefix(50) { out += "  \(c)\n" }
         }
         if !progress.failures.isEmpty {
-            out += "\nDID NOT VERIFY\n"
+            out += "\nPROBLEMS\n"
             for f in progress.failures.prefix(50) { out += "  \(f)\n" }
         }
 
@@ -182,8 +189,15 @@ enum IngestSidecar {
             out += "\(f.sourceHash ?? "")  \(f.destinationRelativePath)\(renamed)\n"
         }
 
-        out += "\nChecksums above are \(algorithm.mhlName). A machine-readable\n"
-        out += "ASC MHL manifest is alongside this file.\n"
+        out += "\nChecksums above are \(algorithm.mhlName).\n"
+        switch manifest {
+        case .written(let name):
+            out += "Manifest          \(name) (ASC MHL)\n"
+        case .disabled:
+            out += "Manifest          disabled by team configuration\n"
+        case .notWritten(let reason):
+            out += "Manifest          not written — \(reason)\n"
+        }
         return out
     }
 

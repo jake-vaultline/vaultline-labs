@@ -56,6 +56,39 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertEqual(run.config.form.fields.map(\.id), [automatic.id, shooter.id])
     }
 
+    func testIngestRecordReportsTheActualManifestOutcome() {
+        let destination = Destination(root: "/Volumes/WORK", label: "Work", isPrimary: true)
+        var file = IngestFile(
+            sourcePath: "/Volumes/CARD/A001.mov", relativePath: "A001.mov",
+            destinationRelativePath: "A001.mov", size: 4)
+        file.sourceHash = "abcd"
+        file.destinations[destination.root] = .verified(hash: "abcd")
+        var progress = OffloadProgress()
+        progress.totalFiles = 1
+        progress.totalBytes = 4
+        progress.filesVerified = 1
+
+        func record(_ manifest: IngestSidecar.ManifestReceipt,
+                    progress: OffloadProgress) -> String {
+            IngestSidecar.text(
+                fields: [], answers: [:], sourceName: "CARD",
+                destinations: [destination], files: [file],
+                algorithm: .xxhash64, progress: progress, manifest: manifest)
+        }
+
+        XCTAssertTrue(record(.written("CARD_001.mhl"), progress: progress)
+            .contains("Manifest          CARD_001.mhl (ASC MHL)"))
+        XCTAssertTrue(record(.disabled, progress: progress)
+            .contains("Manifest          disabled by team configuration"))
+
+        progress.failures = ["Manifest → Work: disk full"]
+        let failed = record(.notWritten("the manifest write failed"), progress: progress)
+        XCTAssertTrue(failed.contains("Manifest          not written — the manifest write failed"))
+        XCTAssertTrue(failed.contains("PROBLEMS\n  Manifest → Work: disk full"))
+        XCTAssertFalse(failed.contains("DID NOT VERIFY"))
+        XCTAssertFalse(failed.contains("manifest is alongside"))
+    }
+
     func testPortablePackageRoundTripsWithoutConnectionState() throws {
         let original = TeamConfigurationPackage(
             team: TeamConfiguration(teamName: "Northstar", workflows: [.standard]),

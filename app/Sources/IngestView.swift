@@ -375,7 +375,7 @@ private struct ProblemBlock: View {
                 }
             }
             if !state.progress.failures.isEmpty {
-                VLNotice(title: "\(state.progress.failures.count) file\(state.progress.failures.count == 1 ? "" : "s") did not verify",
+                VLNotice(title: "\(state.progress.failures.count) problem\(state.progress.failures.count == 1 ? "" : "s") need attention",
                          systemImage: "xmark.octagon") {
                     ForEach(state.progress.failures.prefix(8), id: \.self) { f in
                         Text(f).font(VL.monoSm).foregroundStyle(VL.inkDim)
