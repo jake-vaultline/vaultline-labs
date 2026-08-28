@@ -32,6 +32,7 @@ final class AppState: ObservableObject {
 
     private var bag = Set<AnyCancellable>()
     private var formNamespace: String
+    private var plannedNaming: NamingConfig
 
     /// SwiftUI does **not** observe nested ObservableObjects. A view watching
     /// `AppState` sees nothing when `configStore` publishes. Forward its changes
@@ -40,6 +41,7 @@ final class AppState: ObservableObject {
         let loadedConfig = ConfigStore()
         configStore = loadedConfig
         formNamespace = StickyFormAnswers.namespace(for: loadedConfig.config)
+        plannedNaming = loadedConfig.config.naming
         formAnswers = StickyFormAnswers.load(config: loadedConfig.config)
         configStore.objectWillChange
             .receive(on: RunLoop.main)
@@ -50,6 +52,10 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] config in
                 guard let self else { return }
+                if config.naming != self.plannedNaming {
+                    self.plannedNaming = config.naming
+                    self.replan()
+                }
                 let namespace = StickyFormAnswers.namespace(for: config)
                 guard namespace != self.formNamespace else { return }
                 self.formNamespace = namespace

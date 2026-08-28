@@ -16,6 +16,32 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertEqual(config.effectiveTeam.workflows.first?.mediaFolder, "01_Media/Camera")
     }
 
+    func testNamingConfigurationEqualityDetectsPersistedChanges() {
+        let baseline = NamingConfig()
+        var changed = baseline
+
+        changed.fileTemplate = "{code}_{seq:0000}"
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.folderTemplate = "{date:yyyyMMdd}"
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.renameOnIngest = true
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.projectCode = "JOB"
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.separator = "-"
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.learnedFrom = "Archive"
+        XCTAssertNotEqual(changed, baseline)
+        changed = baseline
+        changed.consistencyAtLearn = 0.9
+        XCTAssertNotEqual(changed, baseline)
+    }
+
     func testDateFieldRequiresExactRealCalendarDate() {
         let field = IngestFormField(label: "Shoot date", kind: .date, required: true)
         XCTAssertTrue(field.isValid(answer: "2026-08-27"))

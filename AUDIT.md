@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 38 of 38 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 39 of 39 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -38,22 +38,24 @@ update checker, or network client. The app sandbox has no network client or serv
 - immutable Start-time capture of resolved answers, automatic date, checksum, manifest, and form
   settings, so a long-running card's receipt cannot drift from the transfer that actually ran; and
 - truthful per-destination receipt wording for written, disabled, and failed/not-written MHL
-  outcomes, without mislabeling output failures as media-verification failures.
+  outcomes, without mislabeling output failures as media-verification failures; and
+- change detection across every persisted naming property used to invalidate and rebuild an active
+  source plan after a team-configuration import or naming edit.
 
 ## Build evidence
 
-The 0.3.0 build 9 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 10 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 9.app`
+`/Applications/Vaultline Ingest 0.3 Review 10.app`
 
 Review DMG SHA-256:
 
-`3779adb51cac3ade717f53583e68fbed2ca3137d15c09de3c927685949dafb8d`
+`0a9eda5478b255622d29d62324d7d8509f5560b5ea13c49a49684de58b680e4c`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -106,12 +108,19 @@ camera-card and writable ExFAT destination images:
     `Manifest disabled by team configuration`, contained no false alongside-manifest claim or
     `DID NOT VERIFY` heading, and the run created no new MHL. The normal MHL preference was restored
     afterward and the app was left open at its first card/source screen.
+17. With a two-file source already selected in the exact build 10 package, importing a team package
+    that enabled renaming and changed the file template to `{code}_{seq:0000}` immediately rebuilt
+    the existing plan. The live UI changed `A001.mov` and `A002.mov` to `QUAL_0001.mov` and
+    `QUAL_0002.mov` without reselecting the source or relaunching. Importing the normal configuration
+    immediately removed the rename preview. A subsequent full-card run verified all three existing
+    files without rewriting them; after quit/relaunch, the configured carry-over brief restored
+    `Jordan Lee`, `Portland Studio`, `Launch Film B`, and `Sony FX6` under the active form schema.
 
 ## Clean-Mac package exercise
 
-The exact build 9 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 10 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 9, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 10, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.

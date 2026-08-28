@@ -42,9 +42,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 38 of 38 native tests and static analysis. Its build 9 universal
+The 0.3.0 source passes 39 of 39 native tests and static analysis. Its build 10 universal
 Intel/Apple Silicon review DMG has SHA-256
-`3779adb51cac3ade717f53583e68fbed2ca3137d15c09de3c927685949dafb8d`, passes strict local
+`0a9eda5478b255622d29d62324d7d8509f5560b5ea13c49a49684de58b680e4c`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -55,7 +55,10 @@ blank and the automatic date remains current. Build 8 additionally completed and
 12.88 GB packaged transfer, froze the visible brief during the run, preserved the original brief in
 the receipt, and reran with zero media bytes rewritten. See [AUDIT.md](AUDIT.md) for the durable
 receipt. Build 9 also proved through the packaged UI that disabling MHL produces a truthful
-disabled-manifest receipt and no new manifest, then restored the normal preference.
+disabled-manifest receipt and no new manifest, then restored the normal preference. Build 10
+proved that importing different naming rules while a card is already selected immediately rebuilds
+the live plan and rename preview, without requiring a source reselection or relaunch. Its full-card
+no-rewrite run and subsequent quit/relaunch also restored the configured carry-over brief.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external

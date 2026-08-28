@@ -28,7 +28,7 @@ struct IngestConfig: Codable {
     }
 }
 
-struct NamingConfig: Codable {
+struct NamingConfig: Codable, Equatable {
     /// e.g. `{code}_{date:yyyyMMdd}_{reel}_{seq:0000}`
     var fileTemplate = ""
     var folderTemplate = ""
