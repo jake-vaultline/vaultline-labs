@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 39 of 39 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 40 of 40 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -40,22 +40,23 @@ update checker, or network client. The app sandbox has no network client or serv
 - truthful per-destination receipt wording for written, disabled, and failed/not-written MHL
   outcomes, without mislabeling output failures as media-verification failures; and
 - change detection across every persisted naming property used to invalidate and rebuild an active
-  source plan after a team-configuration import or naming edit.
+  source plan after a team-configuration import or naming edit; and
+- natural singular and plural result grammar for one-file and multi-file completed runs.
 
 ## Build evidence
 
-The 0.3.0 build 10 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 11 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 10.app`
+`/Applications/Vaultline Ingest 0.3 Review 11.app`
 
 Review DMG SHA-256:
 
-`0a9eda5478b255622d29d62324d7d8509f5560b5ea13c49a49684de58b680e4c`
+`27a0812387b2a94a701f14bbf3c472b97a2c8625584bd37ab576837d40ca0b24`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -118,9 +119,9 @@ camera-card and writable ExFAT destination images:
 
 ## Clean-Mac package exercise
 
-The exact build 10 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 11 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 10, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 11, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.

@@ -42,6 +42,28 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertNotEqual(changed, baseline)
     }
 
+    @MainActor
+    func testRunSummaryUsesNaturalSingularAndPluralGrammar() {
+        var progress = OffloadProgress()
+        progress.phase = .done
+        progress.totalFiles = 1
+        progress.filesVerified = 1
+        progress.filesAlreadyPresent = 1
+
+        XCTAssertEqual(
+            AppState.summary(progress, destinations: 1),
+            "Done — 1 file verified on 1 destination. 1 was already there and matched, so nothing was rewritten."
+        )
+
+        progress.totalFiles = 2
+        progress.filesVerified = 2
+        progress.filesAlreadyPresent = 2
+        XCTAssertEqual(
+            AppState.summary(progress, destinations: 2),
+            "Done — 2 files verified on 2 destinations. 2 were already there and matched, so nothing was rewritten."
+        )
+    }
+
     func testDateFieldRequiresExactRealCalendarDate() {
         let field = IngestFormField(label: "Shoot date", kind: .date, required: true)
         XCTAssertTrue(field.isValid(answer: "2026-08-27"))

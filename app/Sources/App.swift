@@ -40,6 +40,9 @@ enum F {
         let f = NumberFormatter(); f.numberStyle = .decimal
         return f.string(from: NSNumber(value: v)) ?? "\(v)"
     }
+    static func quantity(_ count: Int, singular: String, plural: String? = nil) -> String {
+        "\(self.count(count)) \(count == 1 ? singular : (plural ?? singular + "s"))"
+    }
     static func rate(_ mbps: Double) -> String {
         mbps <= 0 ? "—" : String(format: "%.0f MB/s", mbps)
     }

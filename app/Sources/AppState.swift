@@ -311,15 +311,18 @@ final class AppState: ObservableObject {
         }
     }
 
-    private static func summary(_ p: OffloadProgress, destinations: Int) -> String {
+    static func summary(_ p: OffloadProgress, destinations: Int) -> String {
         let d = "\(destinations) destination\(destinations == 1 ? "" : "s")"
+        let files = F.quantity(p.filesVerified, singular: "file")
         if p.phase == .cancelled {
-            return "Stopped safely — \(p.filesVerified) files were fully verified on \(d). Incomplete staging was removed; re-run the card to continue."
+            let verb = p.filesVerified == 1 ? "was" : "were"
+            return "Stopped safely — \(files) \(verb) fully verified on \(d). Incomplete staging was removed; re-run the card to continue."
         }
         if !p.hasProblems {
-            var s = "Done — \(p.filesVerified) files verified on \(d)."
+            var s = "Done — \(files) verified on \(d)."
             if p.filesAlreadyPresent > 0 {
-                s += " \(p.filesAlreadyPresent) were already there and matched, so nothing was rewritten."
+                let verb = p.filesAlreadyPresent == 1 ? "was" : "were"
+                s += " \(F.count(p.filesAlreadyPresent)) \(verb) already there and matched, so nothing was rewritten."
             }
             return s
         }

@@ -42,9 +42,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 39 of 39 native tests and static analysis. Its build 10 universal
+The 0.3.0 source passes 40 of 40 native tests and static analysis. Its build 11 universal
 Intel/Apple Silicon review DMG has SHA-256
-`0a9eda5478b255622d29d62324d7d8509f5560b5ea13c49a49684de58b680e4c`, passes strict local
+`27a0812387b2a94a701f14bbf3c472b97a2c8625584bd37ab576837d40ca0b24`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -59,6 +59,8 @@ disabled-manifest receipt and no new manifest, then restored the normal preferen
 proved that importing different naming rules while a card is already selected immediately rebuilds
 the live plan and rename preview, without requiring a source reselection or relaunch. Its full-card
 no-rewrite run and subsequent quit/relaunch also restored the configured carry-over brief.
+Build 11 removes singular-count rough edges from the source preview, progress copy, problem notice,
+and final result summary, with explicit one-file and multi-file summary coverage.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external

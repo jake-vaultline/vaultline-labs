@@ -156,7 +156,7 @@ private struct SourceBlock: View {
             Text(state.sourceURL?.lastPathComponent ?? "")
                 .font(VL.display(20))
 
-            Text("\(F.count(state.plan.count)) files · \(F.bytes(state.plannedBytes))")
+            Text("\(F.quantity(state.plan.count, singular: "file")) · \(F.bytes(state.plannedBytes))")
                 .font(VL.body).foregroundStyle(VL.inkDim).monospacedDigit()
 
             if !state.config.naming.fileTemplate.isEmpty {
@@ -335,7 +335,7 @@ private struct RunBlock: View {
             HStack(alignment: .top, spacing: VL.Space.l) {
                 VLStat(label: "Verified",
                        value: "\(F.count(p.filesVerified))",
-                       note: "of \(F.count(p.totalFiles)) files")
+                       note: "of \(F.quantity(p.totalFiles, singular: "file"))")
                 VLStat(label: "Copied",
                        value: F.bytes(p.bytesCopied),
                        note: "of \(F.bytes(p.totalBytes))")
@@ -375,7 +375,8 @@ private struct ProblemBlock: View {
                 }
             }
             if !state.progress.failures.isEmpty {
-                VLNotice(title: "\(state.progress.failures.count) problem\(state.progress.failures.count == 1 ? "" : "s") need attention",
+                let count = state.progress.failures.count
+                VLNotice(title: "\(F.quantity(count, singular: "problem")) \(count == 1 ? "needs" : "need") attention",
                          systemImage: "xmark.octagon") {
                     ForEach(state.progress.failures.prefix(8), id: \.self) { f in
                         Text(f).font(VL.monoSm).foregroundStyle(VL.inkDim)
