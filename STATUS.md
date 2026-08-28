@@ -46,9 +46,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 45 of 45 native tests and static analysis. Its build 15 universal
+The 0.3.0 source passes 45 of 45 native tests and static analysis. Its build 16 universal
 Intel/Apple Silicon review DMG has SHA-256
-`6b955923b9a5ce396465ecf4e3dfe066129980614f986263b6488b0b6b5b851c`, passes strict local
+`5e5b8a4e346907b4cac075528888eac9896bcd09969a54b6d983d9ff69a525ab`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -72,7 +72,7 @@ two-file replacement plan without a partial or stale result. Build 14 adds a det
 destination-disconnect/reconnect exercise: destination loss during a staged copy leaves no partial
 final file or changed source, and a retry after reconnection completes, verifies, and removes
 staging debris. It also makes camera-package sources directly selectable and destination removal
-persistent and accessibility-labeled. Build 15 rejects an existing file occupying any configured
+persistent and accessibility-labeled. Build 16 rejects an existing file occupying any configured
 folder path before changing the destination, refuses to publish a copy when its source changes
 during transfer, supports jobs directly under the selected destination when no fixed parent folder
 is configured, and makes form-field organization controls persistently accessible.

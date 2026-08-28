@@ -338,9 +338,10 @@ final class TeamWorkflowTests: XCTestCase {
         let values = WorkflowTemplate.Values(fields: ["project": "Launch Film"], date: fixedDate)
         let plan = try ConfiguredJobPlan.make(
             workflow: .standard, selectedRoot: root, values: values)
-        let occupiedParent = plan.jobRoot.appendingPathComponent("01_Media", isDirectory: true)
-        try FileManager.default.createDirectory(at: occupiedParent, withIntermediateDirectories: true)
-        let occupied = occupiedParent.appendingPathComponent("Camera")
+        try FileManager.default.createDirectory(at: plan.jobRoot, withIntermediateDirectories: true)
+        // `01_Media` is an implicit ancestor of configured leaf paths such as
+        // `01_Media/Camera`; it must be preflighted too.
+        let occupied = plan.jobRoot.appendingPathComponent("01_Media")
         let original = Data("this is a file, not a folder".utf8)
         try original.write(to: occupied)
 

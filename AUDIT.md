@@ -51,18 +51,18 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Build evidence
 
-The 0.3.0 build 15 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 16 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 15.app`
+`/Applications/Vaultline Ingest 0.3 Review 16.app`
 
 Review DMG SHA-256:
 
-`6b955923b9a5ce396465ecf4e3dfe066129980614f986263b6488b0b6b5b851c`
+`5e5b8a4e346907b4cac075528888eac9896bcd09969a54b6d983d9ff69a525ab`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -132,9 +132,9 @@ camera-card and writable ExFAT destination images:
 
 ## Clean-Mac package exercise
 
-The exact build 15 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 16 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 15, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 16, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.
@@ -147,7 +147,7 @@ their remove control persistently rather than only on pointer hover, with an exp
 label and help text. These changes compiled, passed the full suite and static analysis, and are in
 the exact package above; no visible UI-exercise claim is made for them.
 
-## Build 15 safety and configuration corrections
+## Build 16 safety and configuration corrections
 
 Configured-job creation now preflights the complete folder tree and rejects a regular file occupying
 any configured directory path before creating anything else. A source whose size or modification

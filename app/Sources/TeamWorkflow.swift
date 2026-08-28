@@ -301,9 +301,18 @@ enum ConfiguredJobBuilder {
         // configured as a folder, and treating that as an existing directory
         // would make job creation appear successful while producing an
         // unusable media destination.
-        let directoryTargets = [(plan.jobName, plan.jobRoot)] + plan.workflow.folders.map {
-            ($0, plan.jobRoot.appendingPathComponent(
-                WorkflowPath.normalized($0), isDirectory: true))
+        var directoryTargets = [(plan.jobName, plan.jobRoot)]
+        var seenDirectoryPaths = Set([plan.jobRoot.standardizedFileURL.path])
+        for relative in plan.workflow.folders {
+            var target = plan.jobRoot
+            var labelComponents: [String] = []
+            for component in WorkflowPath.normalized(relative).split(separator: "/").map(String.init) {
+                target.appendPathComponent(component, isDirectory: true)
+                labelComponents.append(component)
+                if seenDirectoryPaths.insert(target.standardizedFileURL.path).inserted {
+                    directoryTargets.append((labelComponents.joined(separator: "/"), target))
+                }
+            }
         }
         for (label, url) in directoryTargets {
             var isDirectory: ObjCBool = false
