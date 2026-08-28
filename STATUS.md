@@ -10,6 +10,9 @@ task branch includes:
 - stable form tokens, automatic date rendering, and team-configured carry-over fields that persist
   safely across card changes, quits, crashes, and resumes without carrying card-specific or stale
   automatic values;
+- an immutable Start-time brief and output-settings snapshot, with the visible brief and
+  configuration controls locked during transfer so the final record cannot drift from the card
+  that actually ran;
 - a versioned portable team-configuration package with transactional validation and import/export;
 - configured workflow selection, destination selection, and an exact pre-write preview;
 - fixed parent paths such as `01 Shoots`, configurable job naming, complete folder trees, and a
@@ -37,16 +40,19 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 36 of 36 native tests and static analysis. Its build 7 universal
+The 0.3.0 source passes 37 of 37 native tests and static analysis. Its build 8 universal
 Intel/Apple Silicon review DMG has SHA-256
-`1198b5c6a49db72c57f26df44865cacd6a03c493dada0f2279c83bfa17f0919e`, passes strict local
+`5d46f9fc1cd27c3ed27fcce056468e5e0d0050a3474762cc60e2c27a783f8a15`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
 bookmark restoration, and no-rewrite rerun. Independent SHA-256 checks matched all intended source
 and destination copies and confirmed the source volume was unchanged. The exact build 7 package
 also proved that configured carry-over answers survive a full quit/relaunch, while card/reel stays
-blank and the automatic date remains current. See [AUDIT.md](AUDIT.md) for the durable receipt.
+blank and the automatic date remains current. Build 8 additionally completed and verified a
+12.88 GB packaged transfer, froze the visible brief during the run, preserved the original brief in
+the receipt, and reran with zero media bytes rewritten. See [AUDIT.md](AUDIT.md) for the durable
+receipt.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external

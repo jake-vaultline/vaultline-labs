@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 36 of 36 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 37 of 37 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -34,22 +34,24 @@ update checker, or network client. The app sandbox has no network client or serv
 - ASC MHL destination paths, selected hash algorithm, transfer semantics, and resumed-file hashes;
 - team-and-form-namespaced persistence for valid fields explicitly configured to carry over; and
 - rejection of stale automatic dates, non-sticky card fields, invalid choices, blank values, and
-  answers from another team's configuration during restoration.
+  answers from another team's configuration during restoration; and
+- immutable Start-time capture of resolved answers, automatic date, checksum, manifest, and form
+  settings, so a long-running card's receipt cannot drift from the transfer that actually ran.
 
 ## Build evidence
 
-The 0.3.0 build 7 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 8 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 7.app`
+`/Applications/Vaultline Ingest 0.3 Review 8.app`
 
 Review DMG SHA-256:
 
-`1198b5c6a49db72c57f26df44865cacd6a03c493dada0f2279c83bfa17f0919e`
+`5d46f9fc1cd27c3ed27fcce056468e5e0d0050a3474762cc60e2c27a783f8a15`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -90,12 +92,19 @@ camera-card and writable ExFAT destination images:
     `Launch Film B`, camera `Sony FX6`, the automatic current date, and the exact destination.
     The non-sticky card/reel field remained blank and Start Ingest was enabled without retyping the
     brief.
+15. The exact build 8 package copied and verified a disposable 12.88 GB synthetic card, then ran it
+    again with zero KB copied and the existing file reported as matched. During both copy and
+    verification, source changes, Naming Setup, job/destination changes, and every brief field were
+    unavailable; the brief rendered as immutable values rather than editable controls. An attempted
+    Notes mutation against the superseded package did not enter the receipt because the Start-time
+    snapshot was already fixed. The final package exposes no editable Notes control during a run.
+    Its ingest record retained the original date, shooter, location, subject, and camera values.
 
 ## Clean-Mac package exercise
 
-The exact build 7 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 8 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 7, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 8, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.

@@ -23,6 +23,39 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertFalse(field.isValid(answer: "2026-02-30"))
     }
 
+    func testRunContextFreezesAnswersDefaultsDateAndOutputSettingsAtStart() throws {
+        var components = DateComponents()
+        components.calendar = Calendar(identifier: .gregorian)
+        components.timeZone = .current
+        components.year = 2026
+        components.month = 8
+        components.day = 27
+        let start = try XCTUnwrap(components.date)
+        let automatic = IngestFormField(
+            label: "Shoot date", kind: .date, required: true,
+            token: "shootDate", automaticValue: .today)
+        let shooter = IngestFormField(
+            label: "Shooter", required: true, defaultValue: "Default DP", token: "shooter")
+        var config = IngestConfig()
+        config.form.fields = [automatic, shooter]
+        config.checksum = .sha1
+        config.workflow.manifest = true
+        var answers = [shooter.id: "Jordan Lee"]
+
+        let run = IngestRunContext(config: config, answers: answers, startedAt: start)
+
+        answers[shooter.id] = "Changed during transfer"
+        config.checksum = .md5
+        config.workflow.manifest = false
+        config.form.fields.removeAll()
+
+        XCTAssertEqual(run.answers[automatic.id], "2026-08-27")
+        XCTAssertEqual(run.answers[shooter.id], "Jordan Lee")
+        XCTAssertEqual(run.config.checksum, .sha1)
+        XCTAssertTrue(run.config.workflow.manifest)
+        XCTAssertEqual(run.config.form.fields.map(\.id), [automatic.id, shooter.id])
+    }
+
     func testPortablePackageRoundTripsWithoutConnectionState() throws {
         let original = TeamConfigurationPackage(
             team: TeamConfiguration(teamName: "Northstar", workflows: [.standard]),

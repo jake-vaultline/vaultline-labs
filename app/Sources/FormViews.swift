@@ -14,7 +14,10 @@ struct ShootForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
             SectionLabel("Details") {
-                if !state.missingRequired.isEmpty {
+                if state.isRunning {
+                    Text("locked during ingest")
+                        .font(VL.small).foregroundStyle(VL.inkFaint)
+                } else if !state.missingRequired.isEmpty {
                     Text("\(state.missingRequired.count) required")
                         .font(VL.small).foregroundStyle(VL.amber)
                 }
@@ -26,6 +29,7 @@ struct ShootForm: View {
                         FieldRow(field: field)
                     }
                 }
+                .disabled(state.isRunning)
             }
         }
     }
@@ -65,41 +69,75 @@ private struct FieldRow: View {
 
     @ViewBuilder
     private var control: some View {
-        switch field.kind {
-        case .text:
-            TextField("", text: state.answer(field))
-                .textFieldStyle(VLFieldStyle())
-                .frame(maxWidth: 300)
-
-        case .longText:
-            TextEditor(text: state.answer(field))
+        if state.isRunning {
+            Text(lockedDisplayValue)
                 .font(VL.body)
-                .scrollContentBackground(.hidden)
-                .padding(6)
-                .frame(height: 62)
-                .background(VL.charcoal, in: RoundedRectangle(cornerRadius: VL.Radius.small))
+                .foregroundStyle(currentValue.isEmpty ? VL.inkFaint : VL.inkDim)
+                .padding(.horizontal, 8).padding(.vertical, 6)
+                .frame(maxWidth: lockedWidth,
+                       minHeight: field.kind == .longText ? 62 : 30,
+                       alignment: field.kind == .longText ? .topLeading : .leading)
+                .background(VL.charcoal.opacity(0.72),
+                            in: RoundedRectangle(cornerRadius: VL.Radius.small))
                 .overlay(RoundedRectangle(cornerRadius: VL.Radius.small)
-                    .strokeBorder(VL.rule, lineWidth: 1))
-                .frame(maxWidth: 380)
+                    .strokeBorder(VL.ruleSoft, lineWidth: 1))
+        } else {
+            switch field.kind {
+            case .text:
+                TextField("", text: state.answer(field))
+                    .textFieldStyle(VLFieldStyle())
+                    .frame(maxWidth: 300)
 
-        case .choice:
-            Picker("", selection: state.answer(field)) {
-                Text("—").tag("")
-                ForEach(field.options, id: \.self) { Text($0).tag($0) }
+            case .longText:
+                TextEditor(text: state.answer(field))
+                    .font(VL.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .frame(height: 62)
+                    .background(VL.charcoal, in: RoundedRectangle(cornerRadius: VL.Radius.small))
+                    .overlay(RoundedRectangle(cornerRadius: VL.Radius.small)
+                        .strokeBorder(VL.rule, lineWidth: 1))
+                    .frame(maxWidth: 380)
+
+            case .choice:
+                Picker("", selection: state.answer(field)) {
+                    Text("—").tag("")
+                    ForEach(field.options, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden().frame(maxWidth: 200)
+
+            case .date:
+                TextField("", text: state.answer(field),
+                          prompt: Text("YYYY-MM-DD").foregroundColor(VL.inkFaint))
+                    .textFieldStyle(VLFieldStyle())
+                    .frame(maxWidth: 150)
+
+            case .toggle:
+                Toggle("", isOn: Binding(
+                    get: { state.answer(field).wrappedValue == "yes" },
+                    set: { state.answer(field).wrappedValue = $0 ? "yes" : "no" }))
+                    .toggleStyle(.switch).labelsHidden()
             }
-            .labelsHidden().frame(maxWidth: 200)
+        }
+    }
 
-        case .date:
-            TextField("", text: state.answer(field),
-                      prompt: Text("YYYY-MM-DD").foregroundColor(VL.inkFaint))
-                .textFieldStyle(VLFieldStyle())
-                .frame(maxWidth: 150)
+    private var currentValue: String {
+        state.formAnswers[field.id] ?? field.resolvedDefault()
+    }
 
-        case .toggle:
-            Toggle("", isOn: Binding(
-                get: { state.answer(field).wrappedValue == "yes" },
-                set: { state.answer(field).wrappedValue = $0 ? "yes" : "no" }))
-                .toggleStyle(.switch).labelsHidden()
+    private var lockedDisplayValue: String {
+        guard !currentValue.isEmpty else { return "—" }
+        if field.kind == .toggle { return currentValue == "yes" ? "Yes" : "No" }
+        return currentValue
+    }
+
+    private var lockedWidth: CGFloat {
+        switch field.kind {
+        case .longText: return 380
+        case .date: return 150
+        case .choice: return 200
+        case .toggle: return 90
+        case .text: return 300
         }
     }
 }
@@ -114,7 +152,7 @@ struct FormEditor: View {
     @State private var newLabel = ""
 
     private var form: IngestFormConfig { state.config.form }
-    private var locked: Bool { state.config.isManaged }
+    private var locked: Bool { state.config.isManaged || state.isRunning }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VL.Space.l) {

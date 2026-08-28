@@ -64,6 +64,7 @@ struct IngestView: View {
 /// Custom chrome: the window has no system title bar, so this is it. Keeps the
 /// dark surface unbroken from edge to edge.
 private struct TitleBar: View {
+    @EnvironmentObject private var state: AppState
     @Binding var showWizard: Bool
 
     var body: some View {
@@ -81,6 +82,7 @@ private struct TitleBar: View {
 
             Button("Naming Setup") { showWizard = true }
                 .buttonStyle(VLButton())
+                .disabled(state.isRunning)
                 .help("Learn your naming convention from work you've already done")
         }
         .padding(.horizontal, VL.Space.m)

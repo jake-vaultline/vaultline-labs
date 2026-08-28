@@ -3,6 +3,25 @@ import AppKit
 import SwiftUI
 import Combine
 
+/// Immutable evidence captured at the instant the operator starts a card.
+///
+/// The UI and Settings window are separate SwiftUI scenes. Without an explicit
+/// snapshot, a change made while a long copy is running could make the final
+/// record describe different answers or output settings than the transfer that
+/// actually ran. Materializing defaults here also fixes the automatic date to
+/// the start of the ingest instead of whichever day verification finishes.
+struct IngestRunContext {
+    let config: IngestConfig
+    let answers: [UUID: String]
+
+    init(config: IngestConfig, answers: [UUID: String], startedAt: Date = Date()) {
+        self.config = config
+        self.answers = Dictionary(uniqueKeysWithValues: config.form.fields.map { field in
+            (field.id, answers[field.id] ?? field.resolvedDefault(on: startedAt))
+        })
+    }
+}
+
 /// Ties the standalone team configuration and offload engine together and owns
 /// the state the UI renders. The standalone Labs utility has no Media Nexus,
 /// Relay, account, telemetry, or other network client.
@@ -197,15 +216,17 @@ final class AppState: ObservableObject {
             return
         }
 
+        let run = IngestRunContext(config: config, answers: formAnswers)
+
         // Save the operator's configured carry-over fields before the first
         // source byte is read, so a crash or unplug during this card does not
         // erase the brief needed to resume it safely.
-        StickyFormAnswers.save(formAnswers, config: config)
+        StickyFormAnswers.save(run.answers, config: run.config)
 
         isRunning = true
         message = nil
         let files = plan
-        let algorithm = config.checksum
+        let algorithm = run.config.checksum
         let sourceName = source.lastPathComponent
 
         task = Task { [weak self] in
@@ -220,7 +241,7 @@ final class AppState: ObservableObject {
             self.results = finished
 
             // Manifest last, and only over verified files.
-            if self.config.workflow.manifest {
+            if run.config.workflow.manifest {
                 for d in usable {
                     guard finished.contains(where: {
                         $0.destinations[d.root]?.isVerified == true
@@ -237,10 +258,10 @@ final class AppState: ObservableObject {
             // The human-readable record, alongside it. Plain text on purpose —
             // it outlives this app, and it's the thing someone actually reads
             // when they find the drive in three years.
-            let form = self.config.form
+            let form = run.config.form
             if form.enabled && form.writeSidecar {
                 let body = IngestSidecar.text(
-                    fields: form.fields, answers: self.formAnswers,
+                    fields: form.fields, answers: run.answers,
                     sourceName: sourceName, destinations: usable, files: finished,
                     algorithm: algorithm, progress: finalProgress)
                 for d in usable {
@@ -258,7 +279,9 @@ final class AppState: ObservableObject {
 
             // Non-sticky fields clear so the next card doesn't inherit the last
             // card's reel number or notes.
-            for f in form.fields where !f.sticky { self.formAnswers[f.id] = "" }
+            for f in self.config.form.fields where !f.sticky {
+                self.formAnswers[f.id] = ""
+            }
 
             self.scopes.releaseAll()
             self.progress = finalProgress

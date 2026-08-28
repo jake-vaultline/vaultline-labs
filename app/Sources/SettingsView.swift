@@ -34,6 +34,13 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: VL.Space.xl) {
+                    if state.isRunning {
+                        VLNotice(title: "Ingest in progress", systemImage: "lock") {
+                            Text("Workflow and form settings are locked until every destination has finished verification. The active card keeps the exact settings it started with.")
+                                .font(VL.small).foregroundStyle(VL.inkDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
                     switch tab {
                     case .team:     TeamSettings()
                     case .workflow: WorkflowSettings()
@@ -83,6 +90,7 @@ private struct TeamSettings: View {
             HStack(spacing: VL.Space.s) {
                 Button("Import Team Configuration…") { importConfiguration() }
                     .buttonStyle(VLPrimaryButton())
+                    .disabled(state.isRunning)
                 Button("Export…") { exportConfiguration() }.buttonStyle(VLButton())
             }
 
@@ -145,7 +153,7 @@ private struct TabButton: ButtonStyle {
 private struct WorkflowSettings: View {
     @EnvironmentObject private var state: AppState
 
-    private var locked: Bool { state.config.isManaged }
+    private var locked: Bool { state.config.isManaged || state.isRunning }
 
     var body: some View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
