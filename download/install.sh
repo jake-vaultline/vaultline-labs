@@ -4,15 +4,8 @@
 #
 #   curl -fsSL https://vaultline.io/ingest/install.sh | bash
 #
-# To install and connect to a Media Nexus in one step:
-#
-#   curl -fsSL https://vaultline.io/ingest/install.sh | \
-#     NEXUS_URL="https://nexus.yourstudio.local" NEXUS_CODE="ABC-123" bash
-#
-# This is what replaces the old "run this to install the Relay client" step.
 # It downloads a notarized DMG, checks its SHA-256, copies the app to
-# /Applications, and — if pairing details were supplied — opens the app's
-# pairing prompt. It never installs anything else, never writes outside
+# /Applications, and opens the standalone utility. It never installs anything else, never writes outside
 # /Applications, and never asks for sudo.
 #
 set -euo pipefail
@@ -69,13 +62,7 @@ fi
 
 bold "Installed to /Applications/${APP}"
 
-if [[ -n "${NEXUS_URL:-}" ]]; then
-  echo "  Connecting to ${NEXUS_URL}…"
-  open "vaultline-ingest://pair?url=$(printf %s "$NEXUS_URL" | sed 's/ /%20/g')&code=${NEXUS_CODE:-}"
-  echo "  Confirm the connection in the window that opens."
-else
-  open -a "/Applications/$APP"
-fi
+open -a "/Applications/$APP"
 
 echo
 echo "  Drop a card on the window to start. Nothing is ever moved or deleted —"

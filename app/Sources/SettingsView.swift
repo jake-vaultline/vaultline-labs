@@ -1,19 +1,21 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @State private var tab: Tab = .workflow
 
     enum Tab: String, CaseIterable, Identifiable {
-        case workflow, form, driveScans, passport, nexus, network
+        case team, workflow, form, driveScans, passport, network
         var id: String { rawValue }
         var title: String {
             switch self {
+            case .team:     return "Team Setup"
             case .workflow: return "Workflow"
             case .form:     return "Shoot Form"
             case .driveScans: return "Drive Scans"
             case .passport: return "Drive Passports"
-            case .nexus:    return "Media Nexus"
             case .network:  return "Network"
             }
         }
@@ -36,11 +38,11 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: VL.Space.xl) {
                     switch tab {
+                    case .team:     TeamSettings()
                     case .workflow: WorkflowSettings()
                     case .form:     FormEditor()
                     case .driveScans: DriveScanSettings()
                     case .passport: PassportSettings()
-                    case .nexus:    NexusSettings()
                     case .network:  NetworkPanel()
                     }
                 }
@@ -55,7 +57,77 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Drive scans / Relay
+// MARK: - Portable team setup
+
+private struct TeamSettings: View {
+    @EnvironmentObject private var state: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VL.Space.l) {
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Configured for")
+                Text(state.config.effectiveTeam.teamName).font(VL.display(20))
+                Text("One app binary, configured with a portable JSON package. The package contains workflow rules—not credentials, account state, or media.")
+                    .font(VL.body).foregroundStyle(VL.inkDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: VL.Space.s) {
+                SectionLabel("Workflows")
+                ForEach(state.config.effectiveTeam.workflows) { workflow in
+                    Panel {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(workflow.name).font(VL.bodyMed)
+                            Text(workflow.jobNameTemplate).font(VL.monoSm).foregroundStyle(VL.blue)
+                            Text("\(workflow.parentSubpath) → \(workflow.mediaFolder)")
+                                .font(VL.small).foregroundStyle(VL.inkFaint)
+                        }
+                    }
+                }
+            }
+
+            HStack(spacing: VL.Space.s) {
+                Button("Import Team Configuration…") { importConfiguration() }
+                    .buttonStyle(VLPrimaryButton())
+                Button("Export…") { exportConfiguration() }.buttonStyle(VLButton())
+            }
+
+            if let message = state.message {
+                Text(message).font(VL.small).foregroundStyle(VL.inkDim)
+            }
+        }
+    }
+
+    private func importConfiguration() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true; panel.canChooseDirectories = false
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try state.configStore.importTeamConfiguration(from: url)
+            state.message = "Imported and validated \(state.config.effectiveTeam.teamName)'s configuration."
+        } catch {
+            state.message = "Configuration was not imported: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportConfiguration() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "vaultline-ingest-team.json"
+        panel.prompt = "Export"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try state.configStore.exportTeamConfiguration(to: url)
+            state.message = "Exported the portable team configuration."
+        } catch {
+            state.message = "Configuration was not exported: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - Drive scans
 
 private struct DriveScanSettings: View {
     @EnvironmentObject private var state: AppState
@@ -68,7 +140,7 @@ private struct DriveScanSettings: View {
             Panel {
                 HStack(spacing: VL.Space.s) {
                     Image(systemName: "lock").foregroundStyle(VL.blue).font(.system(size: 12))
-                    Text("These scan rules come from your Media Nexus and can't be edited here.")
+                    Text("These scan rules are locked by the imported team configuration.")
                         .font(VL.small).foregroundStyle(VL.inkDim)
                 }
             }
@@ -114,7 +186,7 @@ private struct DriveScanSettings: View {
                 .toggleStyle(.checkbox).font(VL.body).disabled(locked || !rules.patternIsValid)
 
             Panel(tint: VL.slate) {
-                Text("Automatic scanning is opt-in because it reads directory metadata from every matching drive. It never reads media contents, moves files, or deletes anything. When connected to Media Nexus, only the resulting inventory metadata is reported — never media.")
+                Text("Automatic scanning is opt-in because it reads directory metadata from every matching drive. It never moves, replaces, or deletes media.")
                     .font(VL.small).foregroundStyle(VL.inkDim)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -174,7 +246,7 @@ private struct PassportSettings: View {
                 .disabled(url.isEmpty || code.count != 6 || busy)
 
                 Panel {
-                    Text("Drive Passports is a separate hosted metadata service. It does not change Media Nexus's local-first boundary.")
+                    Text("Drive Passports is a separate optional metadata service. It does not change Ingest's standalone offload workflow.")
                         .font(VL.small).foregroundStyle(VL.inkDim)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -215,16 +287,6 @@ private struct WorkflowSettings: View {
     private var locked: Bool { state.config.isManaged }
 
     var body: some View {
-        if locked {
-            Panel {
-                HStack(spacing: VL.Space.s) {
-                    Image(systemName: "lock").foregroundStyle(VL.blue).font(.system(size: 12))
-                    Text("These settings come from your Media Nexus and can't be edited here.")
-                        .font(VL.small).foregroundStyle(VL.inkDim)
-                }
-            }
-        }
-
         VStack(alignment: .leading, spacing: VL.Space.s) {
             SectionLabel("Checksum")
             Picker("", selection: Binding(
@@ -287,104 +349,31 @@ private struct WorkflowSettings: View {
     }
 }
 
-// MARK: - Nexus
-
-private struct NexusSettings: View {
-    @EnvironmentObject private var state: AppState
-    @State private var url = ""
-    @State private var code = ""
-    @State private var busy = false
-
-    var body: some View {
-        if state.config.nexus.isPaired {
-            VStack(alignment: .leading, spacing: VL.Space.s) {
-                SectionLabel("Connected")
-                Panel {
-                    VStack(alignment: .leading, spacing: 7) {
-                        row("Media Nexus", state.config.nexus.url)
-                        row("This Mac", state.config.nexus.deviceName)
-                        if let at = state.config.nexus.pairedAt {
-                            row("Paired", at.formatted(date: .abbreviated, time: .shortened))
-                        }
-                    }
-                }
-                Button("Unpair") { state.unpair() }.buttonStyle(VLButton(destructiveTint: true))
-                Text("Unpairing returns settings to local control. Nothing on your drives changes.")
-                    .font(VL.small).foregroundStyle(VL.inkFaint)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: VL.Space.m) {
-                SectionLabel("Connect")
-                Text("If your team runs Vaultline, connect this Mac to your Media Nexus. It will report what you ingest and pick up your team's naming convention automatically.")
-                    .font(VL.body).foregroundStyle(VL.inkDim)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(alignment: .leading, spacing: VL.Space.s) {
-                    TextField("", text: $url,
-                              prompt: Text("https://nexus.yourstudio.local").foregroundColor(VL.inkFaint))
-                        .textFieldStyle(VLFieldStyle())
-                    TextField("", text: $code,
-                              prompt: Text("Pairing code").foregroundColor(VL.inkFaint))
-                        .textFieldStyle(VLFieldStyle())
-                        .frame(maxWidth: 200)
-                }
-                .frame(maxWidth: 380)
-
-                Button(busy ? "Connecting…" : "Pair") {
-                    busy = true
-                    Task { await state.pair(url: url, code: code); busy = false }
-                }
-                .buttonStyle(VLPrimaryButton())
-                .disabled(url.isEmpty || busy)
-
-                Panel {
-                    Text("Only metadata and checksums are ever sent — never your media. The app has no upload path for footage.")
-                        .font(VL.small).foregroundStyle(VL.inkDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .onAppear { url = state.config.nexus.url }
-        }
-
-        if let m = state.message {
-            Text(m).font(VL.small).foregroundStyle(VL.inkFaint)
-        }
-    }
-
-    private func row(_ k: String, _ v: String) -> some View {
-        HStack(alignment: .top, spacing: VL.Space.m) {
-            Text(k).font(VL.small).foregroundStyle(VL.inkFaint)
-                .frame(width: 92, alignment: .leading)
-            Text(v).font(VL.small).textSelection(.enabled)
-        }
-    }
-}
-
 // MARK: - Network panel
 
 /// The app's substitute for a provable no-network entitlement (spec §2).
 /// Only meaningful while it is genuinely complete — every request goes through
-/// `NexusClient.send`, and `release.sh` fails the build if anything else creates
-/// a URLSession.
+/// `DrivePassportClient`, and `release.sh` fails the build if anything else
+/// creates a URLSession.
 private struct NetworkPanel: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
             Text("Every request this app makes").font(VL.display(16))
-            Text("Not a sample — all of them. There is no analytics, no telemetry, no update check and no crash reporting. The app only contacts the Drive Passport and Media Nexus addresses you entered.")
+            Text("Not a sample — all of them. There is no analytics, telemetry, update check, crash reporting, or Media Nexus connection. The optional Drive Passport service is the only active network feature.")
                 .font(VL.small).foregroundStyle(VL.inkDim)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        if state.nexus.log.entries.isEmpty {
+        if state.networkLog.entries.isEmpty {
             Panel(padding: VL.Space.xl) {
                 VStack(spacing: VL.Space.s) {
                     Image(systemName: "network.slash")
                         .font(.system(size: 26, weight: .thin)).foregroundStyle(VL.steel)
                     Text("No network requests have been made.")
                         .font(VL.body).foregroundStyle(VL.inkDim)
-                    Text(state.config.nexus.isPaired || state.config.passport?.isConnected == true
+                    Text(state.config.passport?.isConnected == true
                          ? "Nothing has been sent yet this session."
                          : "No hosted services are connected, so the app has nothing to talk to.")
                         .font(VL.small).foregroundStyle(VL.inkFaint)
@@ -393,7 +382,7 @@ private struct NetworkPanel: View {
             }
         } else {
             VStack(spacing: 4) {
-                ForEach(state.nexus.log.entries) { e in
+                ForEach(state.networkLog.entries) { e in
                     HStack(alignment: .top, spacing: VL.Space.m) {
                         Rectangle()
                             .fill(e.error != nil ? VL.amber : VL.blue)
@@ -411,46 +400,5 @@ private struct NetworkPanel: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Pairing sheet (from the install command)
-
-struct PairingSheet: View {
-    @EnvironmentObject private var state: AppState
-    @State private var busy = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: VL.Space.m) {
-            Text("Connect to your Media Nexus").font(VL.display(17))
-
-            if let p = state.pendingPairing {
-                Text("This Mac is being set up to connect to:")
-                    .font(VL.body).foregroundStyle(VL.inkDim)
-
-                Panel { Text(p.url).font(VL.mono).textSelection(.enabled) }
-
-                Text("Your ingests will be reported to it, and your team's naming convention will be applied automatically. Your media stays on your drives — only metadata and checksums are sent.")
-                    .font(VL.small).foregroundStyle(VL.inkDim)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack {
-                    Button("Not Now") { state.pendingPairing = nil }.buttonStyle(VLButton())
-                    Spacer()
-                    Button(busy ? "Connecting…" : "Connect") {
-                        busy = true
-                        Task { await state.pair(url: p.url, code: p.code); busy = false }
-                    }
-                    .buttonStyle(VLPrimaryButton())
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(busy)
-                }
-                .padding(.top, VL.Space.xs)
-            }
-        }
-        .padding(VL.Space.l)
-        .frame(width: 470)
-        .vlWindowBackground()
-        .foregroundStyle(VL.ink)
     }
 }

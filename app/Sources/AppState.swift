@@ -3,20 +3,21 @@ import AppKit
 import SwiftUI
 import Combine
 
-/// Ties config, the offload engine and the Nexus client together, and owns the
-/// state the UI renders.
+/// Ties the standalone team configuration and offload engine together and owns
+/// the state the UI renders. The standalone Labs utility has no Media Nexus or
+/// Relay client; Drive Passports are a separate optional metadata service.
 @MainActor
 final class AppState: ObservableObject {
 
     let configStore: ConfigStore
-    let nexus: NexusClient
+    let networkLog: NetworkLog
     let passports: DrivePassportClient
     let volumes: VolumeMonitor
 
     private var bag = Set<AnyCancellable>()
 
     /// SwiftUI does **not** observe nested ObservableObjects. A view watching
-    /// `AppState` sees nothing when `configStore`, `volumes`, `nexus` or the
+    /// `AppState` sees nothing when `configStore`, `volumes`, or the
     /// network log publishes — the drive list would sit stale, settings changes
     /// wouldn't take, the request log would never appear.
     ///
@@ -25,16 +26,15 @@ final class AppState: ObservableObject {
     init() {
         let loadedConfig = ConfigStore()
         configStore = loadedConfig
-        nexus = NexusClient()
-        passports = DrivePassportClient(log: nexus.log)
+        networkLog = NetworkLog()
+        passports = DrivePassportClient(log: networkLog)
         volumes = VolumeMonitor(rules: loadedConfig.config.effectiveDriveScanRules)
 
         for child in [
             configStore.objectWillChange.eraseToAnyPublisher(),
             volumes.objectWillChange.eraseToAnyPublisher(),
-            nexus.objectWillChange.eraseToAnyPublisher(),
             passports.objectWillChange.eraseToAnyPublisher(),
-            nexus.log.objectWillChange.eraseToAnyPublisher()
+            networkLog.objectWillChange.eraseToAnyPublisher()
         ] {
             child
                 .receive(on: RunLoop.main)
@@ -59,16 +59,11 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] rules in self?.volumes.updateScanRules(rules) }
             .store(in: &bag)
-
-        volumes.onScanCompleted = { [weak self] volume in
-            guard let self, self.config.nexus.isPaired else { return }
-            Task { await self.reportScannedVolume(volume) }
-        }
     }
 
     /// Which half of the app is on screen. Drives is the standing view — the
     /// thing that's useful on a day when nothing is being ingested.
-    @Published var section: Section = .drives
+    @Published var section: Section = .ingest
     enum Section: String, CaseIterable, Identifiable {
         case drives, ingest
         var id: String { rawValue }
@@ -80,6 +75,7 @@ final class AppState: ObservableObject {
 
     /// Job folder created this session, if any — offered as a destination.
     @Published var lastJob: StructureBuilder.Result?
+    @Published var lastConfiguredJob: ConfiguredJobBuilder.Result?
 
     @Published var sourceURL: URL?
     @Published var plan: [IngestFile] = []
@@ -87,9 +83,6 @@ final class AppState: ObservableObject {
     @Published var results: [IngestFile] = []
     @Published var isRunning = false
     @Published var message: String?
-
-    /// Set when an install command hands us pairing details via URL scheme.
-    @Published var pendingPairing: (url: String, code: String)?
 
     struct PassportPrompt: Identifiable {
         let id = UUID()
@@ -142,34 +135,6 @@ final class AppState: ObservableObject {
 
     var copyFindings: [DriveCopyFinding] {
         DriveCopyAnalyzer.findings(in: volumes.volumes)
-    }
-
-    private func reportScannedVolume(_ volume: KnownVolume) async {
-        guard let snapshot = volume.snapshot else { return }
-        let collections = (snapshot.collections ?? [:]).values.map { collection in
-            [
-                "name": collection.name,
-                "relativePath": collection.relativePath,
-                "fileCount": collection.fileCount,
-                "totalBytes": collection.totalBytes,
-                "inventoryFingerprint": collection.inventoryFingerprint,
-            ] as [String: Any]
-        }
-        let payload: [String: Any] = [
-            "volumeID": volume.id,
-            "volumeUUID": volume.volumeUUID ?? NSNull(),
-            "name": volume.name,
-            "totalBytes": volume.totalBytes,
-            "freeBytes": volume.freeBytes,
-            "scannedAt": ISO8601DateFormatter().string(from: snapshot.takenAt),
-            "fileCount": snapshot.fileCount,
-            "collections": collections,
-        ]
-        do {
-            try await nexus.reportVolumes(config.nexus, volumes: [payload])
-        } catch {
-            message = "Drive scan stayed local; Media Nexus sync failed: \(error.localizedDescription)"
-        }
     }
 
     // MARK: Source
@@ -293,13 +258,6 @@ final class AppState: ObservableObject {
             // it outlives this app, and it's the thing someone actually reads
             // when they find the drive in three years.
             let form = self.config.form
-            let ingestContext = form.fields.compactMap { field -> NexusClient.IngestContextValue? in
-                let value = (self.formAnswers[field.id] ?? field.defaultValue)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !value.isEmpty else { return nil }
-                return NexusClient.IngestContextValue(
-                    fieldID: field.id, label: field.label, kind: field.kind, value: value)
-            }
             if form.enabled && form.writeSidecar {
                 let body = IngestSidecar.text(
                     fields: form.fields, answers: self.formAnswers,
@@ -313,14 +271,6 @@ final class AppState: ObservableObject {
             // Non-sticky fields clear so the next card doesn't inherit the last
             // card's reel number or notes.
             for f in form.fields where !f.sticky { self.formAnswers[f.id] = "" }
-
-            if self.config.nexus.isPaired {
-                try? await self.nexus.reportIngest(self.config.nexus,
-                                                   sourceName: sourceName,
-                                                   files: finished,
-                                                   destinations: usable,
-                                                   context: form.enabled ? ingestContext : [])
-            }
 
             self.scopes.releaseAll()
             self.message = Self.summary(finalProgress, destinations: usable.count)
@@ -354,7 +304,7 @@ final class AppState: ObservableObject {
 
     func answer(_ field: IngestFormField) -> Binding<String> {
         Binding(
-            get: { self.formAnswers[field.id] ?? field.defaultValue },
+            get: { self.formAnswers[field.id] ?? field.resolvedDefault() },
             set: { self.formAnswers[field.id] = $0 })
     }
 
@@ -363,9 +313,18 @@ final class AppState: ObservableObject {
     var missingRequired: [IngestFormField] {
         guard config.form.enabled else { return [] }
         return config.form.fields.filter {
-            $0.required && (formAnswers[$0.id] ?? $0.defaultValue)
+            $0.required && (formAnswers[$0.id] ?? $0.resolvedDefault())
                 .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
+    }
+
+    var workflowValues: WorkflowTemplate.Values {
+        var values: [String: String] = [:]
+        for field in config.form.fields {
+            guard let token = field.token, !token.isEmpty else { continue }
+            values[token] = formAnswers[field.id] ?? field.resolvedDefault()
+        }
+        return WorkflowTemplate.Values(fields: values)
     }
 
     // MARK: Jobs
@@ -399,6 +358,35 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Creates one configured team job and makes its media landing folder the
+    /// active ingest destination. Existing folders and project files are never
+    /// replaced; template collisions are surfaced as a blocking error.
+    func createConfiguredJob(workflow: IngestWorkflowPreset, in selectedRoot: URL) {
+        let jobScope = ScopeHolder()
+        do {
+            guard jobScope.open(paths: [selectedRoot.path]).contains(selectedRoot.path) else {
+                throw TeamConfigurationError.invalidWorkflow("Choose the destination once to grant this app access.")
+            }
+            defer { jobScope.releaseAll() }
+            let plan = try ConfiguredJobPlan.make(
+                workflow: workflow, selectedRoot: selectedRoot, values: workflowValues)
+            let result = try ConfiguredJobBuilder.create(plan)
+            lastConfiguredJob = result
+            Bookmarks.save(selectedRoot)
+            Bookmarks.save(plan.jobRoot)
+            configStore.update { c in
+                c.destinations.removeAll()
+                c.destinations.append(DestinationConfig(
+                    path: plan.mediaRoot.path,
+                    label: "\(workflow.name) · \(plan.jobName)",
+                    isPrimary: true))
+            }
+            message = "Created \(plan.jobName). Media will land in \(workflow.mediaFolder). \(result.projectNote)"
+        } catch {
+            message = "Couldn't create the configured job: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: Results
 
     struct FileOutcome: Identifiable {
@@ -417,44 +405,6 @@ final class AppState: ObservableObject {
         }
         // Problems first — the point of a results list is the exceptions.
         .sorted { ($0.problems > 0 ? 0 : 1, $0.file.relativePath) < ($1.problems > 0 ? 0 : 1, $1.file.relativePath) }
-    }
-
-    // MARK: Pairing
-
-    func handleURL(_ url: URL) {
-        // vaultline-ingest://pair?url=https://nexus.studio.local&code=ABC123
-        guard url.scheme == "vaultline-ingest", url.host == "pair",
-              let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
-        let items = comps.queryItems ?? []
-        let nexusURL = items.first { $0.name == "url" }?.value ?? ""
-        let code = items.first { $0.name == "code" }?.value ?? ""
-        guard !nexusURL.isEmpty else { return }
-        pendingPairing = (nexusURL, code)
-    }
-
-    func pair(url: String, code: String) async {
-        do {
-            let result = try await nexus.pair(urlString: url, code: code,
-                                              deviceName: Host.current().localizedName ?? "Mac")
-            configStore.update { c in
-                c.nexus.url = url
-                c.nexus.deviceName = result.deviceName
-                c.nexus.pairedAt = Date()
-            }
-            if let remote = try? await nexus.fetchConfig(configStore.config.nexus) {
-                configStore.applyFromNexus(remote)
-            }
-            message = "Paired with \(result.serverName). Settings are now managed by your Media Nexus."
-            pendingPairing = nil
-        } catch {
-            message = error.localizedDescription
-        }
-    }
-
-    func unpair() {
-        nexus.unpair(urlString: config.nexus.url)
-        configStore.unpair()
-        message = "Unpaired. Settings are yours again."
     }
 
     // MARK: Drive Passports

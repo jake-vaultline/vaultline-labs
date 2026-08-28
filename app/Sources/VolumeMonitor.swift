@@ -49,7 +49,7 @@ struct VolumeSnapshot: Codable {
     var folders: [String: String]
     /// relative path → size, for top-level entries only (used to describe changes)
     var topLevel: [String: Int64]
-    /// Asset-bearing folders selected by the user's Relay scan rule. Optional
+    /// Asset-bearing folders selected by the user's local scan rule. Optional
     /// so snapshots from older app versions remain readable.
     var collections: [String: ScannedCollection]? = nil
 }
@@ -158,10 +158,9 @@ struct VolumeChange: Codable {
 /// anything, "here are your drives, here's when you last saw each one, here's
 /// what moved" is a question nothing else answers.
 ///
-/// **Local only.** Unlike Media Nexus, one copy of this app cannot see another's
-/// drives — there is no peer discovery and no shared index. What it knows is
-/// what has been plugged into *this* Mac. Pairing to a Nexus is what turns that
-/// into a team-wide picture.
+/// **Local only.** One copy of this app cannot see another's drives — there is
+/// no peer discovery or shared index. It knows only what has been plugged into
+/// *this* Mac.
 @MainActor
 final class VolumeMonitor: ObservableObject {
 
@@ -212,8 +211,8 @@ final class VolumeMonitor: ObservableObject {
     private func didMount(_ url: URL) {
         guard let v = describe(url) else { return }
         upsert(v)
-        // Automatic reading remains an explicit setting. A paired Media Nexus
-        // can manage the same config so a team's Relay clients behave alike.
+        // Automatic reading remains an explicit setting in the portable team
+        // configuration; merely mounting a drive never opts it into scanning.
         if scanRules.automaticOnMount,
            let mounted = volumes.first(where: { $0.id == v.id }) {
             scan(mounted)

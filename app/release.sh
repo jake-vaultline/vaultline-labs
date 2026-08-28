@@ -40,10 +40,9 @@ ditto "$BUILD/$SCHEME.xcarchive/Products/Applications/$SCHEME.app" "$APP"
 [[ -d "$APP" ]] || fail "Archive produced no .app"
 
 # ── THE GUARD ─────────────────────────────────────────────────────────────
-# Inverse of Drive Inspector's. Ingest is ALLOWED the network — pairing to a
-# Media Nexus is the point — but the promise is that it can never be a server,
-# can never reach outside the sandbox, and never gains an entitlement nobody
-# asked for. Check what's there, and what must not be.
+# Ingest is allowed outbound networking only for the optional Drive Passport
+# service. It can never be a server, can never reach outside the sandbox, and
+# never gains an entitlement nobody asked for.
 say "Verifying the entitlement contract"
 ENTS=$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o - - 2>/dev/null || true)
 
@@ -58,16 +57,16 @@ grep -q "com.apple.security.files.user-selected.read-write" <<<"$ENTS" \
 echo "  ✓ sandboxed · client-only network · user-selected files only"
 
 # Cheap tripwire for the Network panel's honesty: every request is supposed to
-# go through the two audited service clients. If another file starts creating URLSessions,
+# go through the audited service client. If another file starts creating URLSessions,
 # that panel silently stops being complete evidence.
 say "Checking the network surface"
-SESSIONS=$(grep -Erl 'URLSession[[:space:]]*\(|URLSession\.shared' Sources | grep -Ev "(NexusClient|DrivePassportClient)\.swift" || true)
+SESSIONS=$(grep -Erl 'URLSession[[:space:]]*\(|URLSession\.shared' Sources | grep -Ev "DrivePassportClient\.swift" || true)
 if [[ -n "$SESSIONS" ]]; then
   fail "URLSession created outside the audited service clients:
 $SESSIONS
-Every request must go through NexusClient or DrivePassportClient or the Network panel is decoration."
+Every request must go through DrivePassportClient or the Network panel is decoration."
 fi
-echo "  ✓ all network traffic routes through the audited service clients"
+echo "  ✓ all network traffic routes through the audited service client"
 
 say "Verifying signature"
 codesign --verify --deep --strict --verbose=2 "$APP"

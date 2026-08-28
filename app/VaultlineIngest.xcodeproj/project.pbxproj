@@ -9,8 +9,9 @@
 /* Begin PBXBuildFile section */
 		005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AA555146EDD3B7B1252AC /* XXHash64.swift */; };
 		0BC3BD43DCB9850532E6EFA1 /* IngestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450B2FE5DEF28800BED5EA1A /* IngestView.swift */; };
-		36F4F8285C58F4A6BF94D9BA /* NexusClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9815524639D944468980C19 /* NexusClient.swift */; };
+		0C5593A652F1D1FC48BF4900 /* TeamWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */; };
 		3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6076C926FFBC6E541DD27B8 /* Theme.swift */; };
+		3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */; };
 		3CE61B42308862ED8EEBE7E0 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BD9B3704F803180086D79E /* KeychainTests.swift */; };
 		46196867D65F13F5DBCA12F3 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBECC7C3122C903D11E446 /* App.swift */; };
 		487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */; };
@@ -28,6 +29,7 @@
 		A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */; };
 		ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */; };
 		AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1696B1EC98B3EE707114CF /* SetupWizard.swift */; };
+		B3BDA105559986F5167E0425 /* SecuritySupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D299100F2516CC626D291B1 /* SecuritySupport.swift */; };
 		C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A03FD61219C94637A2D1321 /* StructureBuilder.swift */; };
 		C912E871792BAF58134472CD /* DriveIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */; };
 		CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC9F0F2D3F92CB526913833 /* Checksums.swift */; };
@@ -63,13 +65,16 @@
 		39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmarks.swift; sourceTree = "<group>"; };
 		3C570AAEF5E04182780B6B4C /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestForm.swift; sourceTree = "<group>"; };
+		4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamWorkflow.swift; sourceTree = "<group>"; };
 		450B2FE5DEF28800BED5EA1A /* IngestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestView.swift; sourceTree = "<group>"; };
 		4B524C5E579571F225EECD2C /* NameTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameTemplate.swift; sourceTree = "<group>"; };
 		53DBECC7C3122C903D11E446 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivesView.swift; sourceTree = "<group>"; };
+		64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamWorkflowTests.swift; sourceTree = "<group>"; };
 		67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveIdentityTests.swift; sourceTree = "<group>"; };
 		6A03FD61219C94637A2D1321 /* StructureBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructureBuilder.swift; sourceTree = "<group>"; };
 		6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealDrivePassportIntegrationTests.swift; sourceTree = "<group>"; };
+		7D299100F2516CC626D291B1 /* SecuritySupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySupport.swift; sourceTree = "<group>"; };
 		80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VaultlineIngest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportOutboxTests.swift; sourceTree = "<group>"; };
 		853C340DC6E6BDE4BC416F73 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -78,7 +83,6 @@
 		8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentityTests.swift; sourceTree = "<group>"; };
 		95BD9B3704F803180086D79E /* KeychainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTests.swift; sourceTree = "<group>"; };
 		B2DC857F29E9C077BB366E1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		B9815524639D944468980C19 /* NexusClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusClient.swift; sourceTree = "<group>"; };
 		BCE35658D613478FB3A539F8 /* MHLWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MHLWriter.swift; sourceTree = "<group>"; };
 		C90AA555146EDD3B7B1252AC /* XXHash64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XXHash64.swift; sourceTree = "<group>"; };
 		D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentity.swift; sourceTree = "<group>"; };
@@ -124,12 +128,13 @@
 				BCE35658D613478FB3A539F8 /* MHLWriter.swift */,
 				4B524C5E579571F225EECD2C /* NameTemplate.swift */,
 				226428106CC8ACEA86164662 /* NamingAnalyzer.swift */,
-				B9815524639D944468980C19 /* NexusClient.swift */,
 				06F006E19AEDFF32901C1282 /* OffloadEngine.swift */,
 				253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */,
+				7D299100F2516CC626D291B1 /* SecuritySupport.swift */,
 				853C340DC6E6BDE4BC416F73 /* SettingsView.swift */,
 				8F1696B1EC98B3EE707114CF /* SetupWizard.swift */,
 				6A03FD61219C94637A2D1321 /* StructureBuilder.swift */,
+				4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */,
 				E6076C926FFBC6E541DD27B8 /* Theme.swift */,
 				D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */,
 				10717594ED2840CB5C8F137D /* VolumeMonitor.swift */,
@@ -155,6 +160,7 @@
 				84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */,
 				EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */,
 				6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */,
+				64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */,
 				8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */,
 				15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */,
 			);
@@ -259,6 +265,7 @@
 				817D97405A9C3A859F60479F /* PassportOutboxTests.swift in Sources */,
 				8F5E5EED0A82C145025A4086 /* PassportReconnectTests.swift in Sources */,
 				7F2FE3BCC00C20D33FC93E22 /* RealDrivePassportIntegrationTests.swift in Sources */,
+				0C5593A652F1D1FC48BF4900 /* TeamWorkflowTests.swift in Sources */,
 				ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */,
 				A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */,
 			);
@@ -282,12 +289,13 @@
 				FA1AC09743BCF9B032C7FA06 /* MHLWriter.swift in Sources */,
 				E515F7D39B693ACBB914CACA /* NameTemplate.swift in Sources */,
 				CE56991C0A87C3A54FA3AB7F /* NamingAnalyzer.swift in Sources */,
-				36F4F8285C58F4A6BF94D9BA /* NexusClient.swift in Sources */,
 				E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */,
 				E889E3905FD607A20CDD51C7 /* PassportOutbox.swift in Sources */,
+				B3BDA105559986F5167E0425 /* SecuritySupport.swift in Sources */,
 				CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */,
 				AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */,
 				C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */,
+				3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */,
 				3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */,
 				F92A1FD22C8265D998A0CD58 /* VolumeIdentity.swift in Sources */,
 				8ABFE5790AF85990C3A99384 /* VolumeMonitor.swift in Sources */,
@@ -335,7 +343,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -345,7 +353,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest;
 				PRODUCT_NAME = VaultlineIngest;
 				SDKROOT = macosx;
@@ -502,7 +510,7 @@
 				CODE_SIGN_IDENTITY = F0C4C075498F5F67CBB94495DB0115D3DE89E835;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 57U2N6J9ZS;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -512,7 +520,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.vaultline.ingest;
 				PRODUCT_NAME = VaultlineIngest;
 				SDKROOT = macosx;

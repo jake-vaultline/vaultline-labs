@@ -3,26 +3,16 @@
 <plist version="1.0">
 <dict>
     <!--
-      DIFFERENT POSTURE FROM DRIVE INSPECTOR — read this before copying either.
+      Ingest is standalone and has no Media Nexus or Relay client. Its optional
+      Drive Passport feature requires outbound networking. Every such request
+      goes through DrivePassportClient and appears in Settings → Network.
 
-      Drive Inspector has NO network entitlement, and that provable restraint is
-      its strongest claim. Ingest cannot make that claim: talking to a Media
-      Nexus is the whole point of the paired mode.
-
-      So the promise here is narrower and proved differently — every request the
-      app makes is logged and shown in Settings (see NexusClient.NetworkLog).
-      Unpaired, that log stays empty and the user can watch it stay empty.
-
-      Consequences to hold on to:
-        · No analytics, no telemetry, no update check, no crash reporting.
-          The only host contacted is the Nexus address the user typed in.
-        · Every request goes through NexusClient.send so the log is complete.
-          A request that bypasses it makes the log decoration instead of evidence.
+      No analytics, telemetry, update check, or crash reporting is present.
     -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
 
-    <!-- Outbound only. The app is never a server. -->
+    <!-- Outbound is exclusively for the optional Drive Passport service. -->
     <key>com.apple.security.network.client</key>
     <true/>
 

@@ -21,6 +21,14 @@ struct IngestFormField: Codable, Identifiable, Hashable {
     /// between cards, and retyping them is how forms stop getting filled in.
     var sticky = true
     var defaultValue = ""
+    /// Stable token used by job and project-name templates. Labels can change;
+    /// tokens are the configuration contract and therefore must not.
+    var token: String?
+    var automaticValue: AutomaticValue?
+
+    enum AutomaticValue: String, Codable, CaseIterable {
+        case today
+    }
 
     enum Kind: String, Codable, CaseIterable, Identifiable {
         case text, longText, choice, date, toggle
@@ -40,20 +48,30 @@ struct IngestFormField: Codable, Identifiable, Hashable {
     /// point, entirely editable — a default that can't be changed is just a
     /// constraint wearing a friendly hat.
     static let suggested: [IngestFormField] = [
-        IngestFormField(label: "Production",  kind: .text),
-        IngestFormField(label: "Shoot day",   kind: .text),
-        IngestFormField(label: "Camera",      kind: .text),
-        IngestFormField(label: "Operator",    kind: .text),
-        IngestFormField(label: "Location",    kind: .text),
-        IngestFormField(label: "Card / reel", kind: .text, sticky: false),
-        IngestFormField(label: "Notes",       kind: .longText, sticky: false),
-        IngestFormField(label: "Ready to archive", kind: .toggle, sticky: false)
+        IngestFormField(label: "Shoot date", kind: .date, required: true, token: "shootDate", automaticValue: .today),
+        IngestFormField(label: "Who shot this?", kind: .text, required: true, token: "shooter"),
+        IngestFormField(label: "Where was it shot?", kind: .text, token: "location"),
+        IngestFormField(label: "What was shot?", kind: .text, required: true, token: "project"),
+        IngestFormField(label: "Camera", kind: .text, token: "camera"),
+        IngestFormField(label: "Job number", kind: .text, token: "jobNumber"),
+        IngestFormField(label: "Card / reel", kind: .text, sticky: false, token: "reel"),
+        IngestFormField(label: "Notes", kind: .longText, sticky: false, token: "notes")
     ]
+
+    func resolvedDefault(on date: Date = Date()) -> String {
+        switch automaticValue {
+        case .today:
+            let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.string(from: date)
+        case nil:
+            return defaultValue
+        }
+    }
 }
 
 struct IngestFormConfig: Codable {
-    var enabled = false
-    var fields: [IngestFormField] = []
+    var enabled = true
+    var fields: [IngestFormField] = IngestFormField.suggested
     /// Written alongside the media at each destination.
     var writeSidecar = true
     var sidecarName = "INGEST-NOTES.txt"
@@ -88,14 +106,14 @@ enum IngestSidecar {
         out += "Tool              Vaultline Ingest \(version)\n\n"
 
         let answered = fields.filter {
-            !(answers[$0.id] ?? $0.defaultValue)
+            !(answers[$0.id] ?? $0.resolvedDefault())
                 .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         if !answered.isEmpty {
             out += "SHOOT\n" + String(repeating: "-", count: 52) + "\n"
             let width = answered.map(\.label.count).max() ?? 12
             for f in answered {
-                let value = answers[f.id] ?? f.defaultValue
+                let value = answers[f.id] ?? f.resolvedDefault()
                 if f.kind == .longText {
                     out += "\(f.label)\n"
                     for line in value.split(separator: "\n", omittingEmptySubsequences: false) {

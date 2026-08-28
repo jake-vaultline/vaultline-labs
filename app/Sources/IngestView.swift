@@ -49,10 +49,6 @@ struct IngestView: View {
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { handleDrop($0) }
         .sheet(isPresented: $showWizard) { SetupWizard().environmentObject(state) }
         .sheet(isPresented: $showJob) { JobSheet().environmentObject(state) }
-        .sheet(isPresented: Binding(
-            get: { state.pendingPairing != nil },
-            set: { if !$0 { state.pendingPairing = nil } })
-        ) { PairingSheet().environmentObject(state) }
         .sheet(item: $state.passportPrompt) { prompt in
             PassportPairingSheet(prompt: prompt).environmentObject(state)
         }
@@ -104,11 +100,6 @@ private struct TitleBar: View {
             .padding(2)
             .background(VL.slate, in: RoundedRectangle(cornerRadius: VL.Radius.small + 2))
 
-            if state.config.nexus.isPaired {
-                VLChip(text: "PAIRED", tint: VL.blue)
-                    .help("Connected to \(state.config.nexus.url)")
-            }
-
             if state.config.passport?.isConnected == true {
                 VLChip(text: state.passports.pendingUploads > 0
                        ? "PASSPORTS · \(state.passports.pendingUploads) PENDING"
@@ -120,10 +111,7 @@ private struct TitleBar: View {
 
             Button("Naming Setup") { showWizard = true }
                 .buttonStyle(VLButton())
-                .disabled(state.config.isManaged)
-                .help(state.config.isManaged
-                      ? "Naming is managed by your Media Nexus"
-                      : "Learn your naming convention from work you've already done")
+                .help("Learn your naming convention from work you've already done")
         }
         .padding(.horizontal, VL.Space.m)
         .frame(height: 46)
@@ -313,11 +301,11 @@ private struct DropZone: View {
 
             HStack(spacing: VL.Space.s) {
                 Button("Choose Source…", action: choose).buttonStyle(VLPrimaryButton())
-                Button("New Job…", action: newJob).buttonStyle(VLButton())
+                Button("Create Configured Job…", action: newJob).buttonStyle(VLButton())
             }
             .padding(.top, VL.Space.xs)
 
-            Text("Setting up a shoot? Create the folder structure first — that's where naming usually goes wrong.")
+            Text("Fill in the shoot details, then use the configured workflow to create the correctly named job and folder structure.")
                 .font(VL.small).foregroundStyle(VL.inkFaint)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 380)
@@ -418,7 +406,7 @@ private struct DestinationBlock: View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
             SectionLabel("Destinations") {
                 HStack(spacing: VL.Space.m) {
-                    Button("New Job") { newJob() }
+                    Button("Create Configured Job") { newJob() }
                         .buttonStyle(VLQuietButton())
                         .disabled(state.isRunning || state.config.isManaged)
                     Button("Add") { state.addDestination() }
@@ -432,7 +420,7 @@ private struct DestinationBlock: View {
                     VStack(alignment: .leading, spacing: VL.Space.s) {
                         Text("Add at least one. Two is better — both are written and verified identically.")
                             .font(VL.body).foregroundStyle(VL.inkDim)
-                        Text("Or create a job folder and this will point at its shoot side for you.")
+                        Text("Or create a configured job and this will point at its approved media folder for you.")
                             .font(VL.small).foregroundStyle(VL.inkFaint)
                     }
                 }

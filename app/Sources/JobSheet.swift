@@ -1,27 +1,32 @@
 import SwiftUI
 import AppKit
 
-/// Creates the folder tree a job lives in, before the card goes in.
-///
-/// Deliberately the first thing offered on an empty ingest screen rather than
-/// something buried in a menu: structure that gets improvised after the media
-/// has landed is the structure that goes wrong.
+/// Preview and create a job from the team's portable workflow configuration.
+/// The ingest form supplies naming tokens; the operator only chooses the
+/// workflow and destination root.
 struct JobSheet: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var title = ""
-    @State private var template = StructureBuilder.shootAndEdit
-    @State private var parent: URL?
+    @State private var workflowID = ""
+    @State private var selectedRoot: URL?
 
-    private var previewName: String {
-        StructureBuilder.jobName(naming: state.config.naming, jobTitle: title)
+    private var workflows: [IngestWorkflowPreset] { state.config.effectiveTeam.workflows }
+    private var workflow: IngestWorkflowPreset? {
+        workflows.first { $0.id == workflowID } ?? workflows.first
+    }
+    private var plan: Result<ConfiguredJobPlan, Error> {
+        guard let workflow, let selectedRoot else {
+            return .failure(TeamConfigurationError.invalidWorkflow("Choose a workflow and destination."))
+        }
+        return Result { try ConfiguredJobPlan.make(
+            workflow: workflow, selectedRoot: selectedRoot, values: state.workflowValues) }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("New Job").font(VL.title)
+                Text("Create Ingest Job").font(VL.title)
                 Spacer()
                 Button("Cancel") { dismiss() }.buttonStyle(VLQuietButton())
             }
@@ -31,110 +36,136 @@ struct JobSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: VL.Space.l) {
-                    naming
-                    templates
+                    if !state.missingRequired.isEmpty {
+                        Panel(tint: VL.amber.opacity(0.08)) {
+                            Text("Complete the required ingest details first: \(state.missingRequired.map(\.label).joined(separator: ", ")).")
+                                .font(VL.small).foregroundStyle(VL.inkDim)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: VL.Space.s) {
+                        SectionLabel("Team workflow")
+                        ForEach(workflows) { item in
+                            Button { workflowID = item.id; useConfiguredRoot(item) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.name).font(VL.bodyMed)
+                                    Text(item.detail).font(VL.small).foregroundStyle(VL.inkDim)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(VL.Space.m)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(workflow?.id == item.id ? VL.blue.opacity(0.12) : VL.slate,
+                                            in: RoundedRectangle(cornerRadius: VL.Radius.panel))
+                                .overlay(RoundedRectangle(cornerRadius: VL.Radius.panel)
+                                    .strokeBorder(workflow?.id == item.id ? VL.blue.opacity(0.75) : VL.ruleSoft))
+                            }.buttonStyle(.plain)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: VL.Space.s) {
+                        SectionLabel("Destination")
+                        HStack(spacing: VL.Space.s) {
+                            Button(selectedRoot == nil ? "Choose Drive or Folder…" : "Change…") { pickRoot() }
+                                .buttonStyle(VLButton())
+                            if let selectedRoot {
+                                Text(selectedRoot.path).font(VL.monoSm).foregroundStyle(VL.inkFaint)
+                                    .lineLimit(1).truncationMode(.middle)
+                            }
+                        }
+                        if selectedRoot == nil, let suggested = workflow?.destinationRoot {
+                            Text("Configured destination: \(suggested). Choose it once so macOS can grant access.")
+                                .font(VL.small).foregroundStyle(VL.inkFaint)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
                     preview
                 }
                 .padding(VL.Space.l)
             }
 
             Divider().overlay(VL.rule)
-
             HStack {
-                Text(parent.map { "in \($0.lastPathComponent)" } ?? "Choose where it goes")
+                Text("Nothing existing is overwritten.")
                     .font(VL.small).foregroundStyle(VL.inkFaint)
                 Spacer()
-                Button("Create") {
-                    guard let parent else { return }
-                    state.createJob(template: template, title: title, in: parent)
-                    dismiss()
+                Button("Create Job") {
+                    guard let workflow, let selectedRoot else { return }
+                    state.createConfiguredJob(workflow: workflow, in: selectedRoot)
+                    if state.lastConfiguredJob != nil { dismiss() }
                 }
                 .buttonStyle(VLPrimaryButton())
                 .keyboardShortcut(.defaultAction)
-                .disabled(parent == nil)
-                .opacity(parent == nil ? 0.45 : 1)
+                .disabled(!canCreate)
+                .opacity(canCreate ? 1 : 0.45)
             }
             .padding(.horizontal, VL.Space.m).frame(height: 52)
         }
-        .frame(width: 620, height: 560)
-        .vlWindowBackground()
-        .foregroundStyle(VL.ink)
-    }
-
-    // MARK: Blocks
-
-    private var naming: some View {
-        VStack(alignment: .leading, spacing: VL.Space.s) {
-            SectionLabel("Job")
-            TextField("", text: $title,
-                      prompt: Text("What is it? e.g. Northstar Q3 Campaign").foregroundColor(VL.inkFaint))
-                .textFieldStyle(VLFieldStyle())
-
-            HStack(spacing: VL.Space.s) {
-                Button(parent == nil ? "Choose Location…" : "Change Location…") { pick() }
-                    .buttonStyle(VLButton())
-                if let parent {
-                    Text(parent.path).font(VL.monoSm).foregroundStyle(VL.inkFaint)
-                        .lineLimit(1).truncationMode(.middle)
-                }
-            }
+        .frame(width: 680, height: 650)
+        .vlWindowBackground().foregroundStyle(VL.ink)
+        .onAppear {
+            if workflowID.isEmpty { workflowID = workflows.first?.id ?? "" }
+            if let workflow { useConfiguredRoot(workflow) }
         }
     }
 
-    private var templates: some View {
-        VStack(alignment: .leading, spacing: VL.Space.s) {
-            SectionLabel("Structure")
-            ForEach(StructureBuilder.builtIn) { t in
-                Button { template = t } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text(t.name).font(VL.bodyMed)
-                            Spacer()
-                            Text("\(t.folders.count) folders")
-                                .font(VL.small).foregroundStyle(VL.inkFaint)
-                        }
-                        Text(t.detail).font(VL.small).foregroundStyle(VL.inkDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .padding(VL.Space.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(template.id == t.id ? VL.blue.opacity(0.12) : VL.slate,
-                                in: RoundedRectangle(cornerRadius: VL.Radius.panel))
-                    .overlay(RoundedRectangle(cornerRadius: VL.Radius.panel)
-                        .strokeBorder(template.id == t.id ? VL.blue.opacity(0.75) : VL.ruleSoft,
-                                      lineWidth: template.id == t.id ? 1.5 : 1))
-                }
-                .buttonStyle(.plain)
-            }
-        }
+    private var canCreate: Bool {
+        guard state.missingRequired.isEmpty, selectedRoot != nil else { return false }
+        if case .success = plan { return true }
+        return false
     }
 
-    private var preview: some View {
+    @ViewBuilder private var preview: some View {
         VStack(alignment: .leading, spacing: VL.Space.s) {
-            SectionLabel("Will create")
+            SectionLabel("Preview")
             Panel {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(previewName).font(VL.mono)
-                    ForEach(template.folders, id: \.self) { f in
-                        Text("  " + f.replacingOccurrences(of: "/", with: " / "))
-                            .font(VL.monoSm).foregroundStyle(VL.inkDim)
+                switch plan {
+                case .success(let plan):
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(plan.parent.path).font(VL.monoSm).foregroundStyle(VL.inkFaint)
+                        Text(plan.jobName).font(VL.mono)
+                        ForEach(plan.workflow.folders, id: \.self) { folder in
+                            HStack(spacing: 6) {
+                                Text("  " + folder.replacingOccurrences(of: "/", with: " / "))
+                                    .font(VL.monoSm).foregroundStyle(
+                                        WorkflowPath.normalized(folder) == WorkflowPath.normalized(plan.workflow.mediaFolder)
+                                        ? VL.blue : VL.inkDim)
+                                if WorkflowPath.normalized(folder) == WorkflowPath.normalized(plan.workflow.mediaFolder) {
+                                    Text("MEDIA LANDS HERE").font(.system(size: 8, weight: .semibold)).foregroundStyle(VL.blue)
+                                }
+                            }
+                        }
+                        if let project = plan.projectURL {
+                            Text("Project: \(project.lastPathComponent)")
+                                .font(VL.small).foregroundStyle(VL.inkFaint).padding(.top, 6)
+                            Text(plan.workflow.projectTemplatePath == nil && plan.workflow.projectTemplateBase64 == nil
+                                 ? "The project folder is created. No fake Premiere file is generated until Vaultline configures a real team template."
+                                 : "The team's real project template will be copied under this name.")
+                                .font(VL.small).foregroundStyle(VL.inkDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
-                    Text("Camera media from your next ingest will land in the shoot side, not the edit side. That separation is the whole point — shoot is written once, edit is where everything churns.")
-                        .font(VL.small).foregroundStyle(VL.inkFaint)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, VL.Space.s)
+                case .failure(let error):
+                    Text(error.localizedDescription).font(VL.small).foregroundStyle(VL.amber)
                 }
             }
         }
     }
 
-    private func pick() {
+    private func useConfiguredRoot(_ workflow: IngestWorkflowPreset) {
+        guard let path = workflow.destinationRoot, Bookmarks.has(path: path) else { return }
+        selectedRoot = URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    private func pickRoot() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.prompt = "Choose"
-        panel.message = "Where should this job folder be created?"
-        if panel.runModal() == .OK { parent = panel.url }
+        panel.message = "Choose the drive or folder where this team's configured parent folder should live."
+        if panel.runModal() == .OK, let url = panel.url {
+            Bookmarks.save(url)
+            selectedRoot = url
+        }
     }
 }

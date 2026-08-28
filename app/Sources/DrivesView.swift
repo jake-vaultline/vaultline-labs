@@ -7,9 +7,8 @@ import SwiftUI
 /// nothing to leave running.
 ///
 /// **Local only, and the UI says so.** This is not a team picture: one copy of
-/// the app cannot see another's drives, because there is no peer discovery and
-/// no shared index. Pairing to a Media Nexus is what turns "the drives I've
-/// plugged in" into "the drives we own".
+/// the app cannot see another's drives because there is no peer discovery or
+/// shared Media Nexus state in this standalone utility.
 struct DrivesView: View {
     @EnvironmentObject private var state: AppState
 
@@ -75,11 +74,9 @@ struct DrivesView: View {
     private var scopeNote: some View {
         Panel {
             HStack(alignment: .top, spacing: VL.Space.s) {
-                Image(systemName: state.config.nexus.isPaired ? "link" : "desktopcomputer")
+                Image(systemName: "desktopcomputer")
                     .font(.system(size: 12)).foregroundStyle(VL.blue).padding(.top, 1)
-                Text(state.config.nexus.isPaired
-                     ? "Paired — completed drive scans are reported to your Media Nexus, so your team can compare them with everyone else's."
-                     : "This is only what has been plugged into this Mac. Copies of this app don't see each other's drives; connecting to a Media Nexus is what makes it a team-wide picture.")
+                Text("This local registry shows only what has been plugged into this Mac. The standalone Ingest app never reports scans to Media Nexus or Relay.")
                     .font(VL.small).foregroundStyle(VL.inkDim)
                     .fixedSize(horizontal: false, vertical: true)
             }

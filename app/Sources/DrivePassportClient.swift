@@ -153,7 +153,7 @@ final class DrivePassportClient: ObservableObject {
 
     func connect(urlString: String, code: String, deviceName: String) async throws -> ConnectResult {
         let body = ConnectBody(code: code, deviceName: deviceName,
-                               appVersion: NexusClient.version, schemaVersion: 1)
+                               appVersion: AppVersion.current, schemaVersion: 1)
         let result: ConnectResult = try await send(urlString: urlString,
             path: "/api/v1/devices/connect", method: "POST", token: nil, body: body)
         let keychainStatus = Keychain.set(result.deviceToken, for: tokenKey(urlString))
@@ -368,7 +368,7 @@ final class DrivePassportClient: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Vaultline Ingest/\(NexusClient.version)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Vaultline Ingest/\(AppVersion.current)", forHTTPHeaderField: "User-Agent")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         let jsonEncoder = JSONEncoder(); jsonEncoder.keyEncodingStrategy = .convertToSnakeCase
         request.httpBody = try jsonEncoder.encode(body)

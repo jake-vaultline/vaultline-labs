@@ -14,9 +14,6 @@ struct VaultlineIngestApp: App {
                 // dark rooms and a white window in the middle of that is an
                 // intrusion. It's also the brand's own direction.
                 .preferredColorScheme(.dark)
-                // The install command opens vaultline-ingest://pair?… after
-                // copying the app, so a client is paired without typing an address.
-                .onOpenURL { state.handleURL($0) }
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)

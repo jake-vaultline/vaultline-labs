@@ -47,10 +47,10 @@ has a much wider blast radius.
 `network.server` appears (this app is a client, never a listener), if any broad
 filesystem entitlement appears, or if user-selected read-write is missing.
 
-**Network surface.** The build fails if any file other than the two audited service
-clients (`NexusClient.swift` and `DrivePassportClient.swift`) creates a `URLSession`.
-Both write to the same Settings → Network log. The moment another code path can make a
-request, that panel stops being evidence and becomes decoration.
+**Network surface.** The build fails if any file other than the audited optional service
+client (`DrivePassportClient.swift`) creates a `URLSession`. It writes every request to
+Settings → Network. The moment another code path can make a request, that panel stops
+being evidence and becomes decoration.
 
 Neither guard should ever be bypassed to get a build out.
 
@@ -69,19 +69,15 @@ prints serials or other identifier values and never reads drive contents.
 
 ---
 
-## Sending it to a client
+## Installing the standalone utility
 
 ```
-curl -fsSL https://vaultline.io/ingest/install.sh | \
-  NEXUS_URL="https://nexus.theirstudio.local" NEXUS_CODE="ABC-123" bash
+curl -fsSL https://vaultline.io/ingest/install.sh | bash
 ```
 
-That downloads the notarized build, verifies the checksum, copies the app to
-Applications, and opens the pairing prompt pre-filled with their Nexus address. They
-confirm it and they're reporting.
-
-Pairing is still a human confirmation on purpose — a URL that silently connected a
-workstation to a server would be a fine piece of malware.
+That downloads the notarized build, verifies the checksum, copies the standalone app to
+Applications, and opens it. A team's portable JSON configuration is imported from
+Settings → Team Setup; it contains workflow rules and no credentials or server connection.
 
 ---
 
@@ -90,9 +86,7 @@ workstation to a server would be a fine piece of malware.
 - [x] Compiles with Xcode 26.6 (2026-08-09)
 - [x] `XXHash64.swift` verified against reference vectors and streamed test cases;
       see `../AUDIT.md`
-- [ ] Structure creation from the learned convention (the wizard produces the template;
-      nothing builds trees from it yet)
+- [x] Configuration-driven structure creation and safe real project-template copying
 - [ ] Resume after interruption
-- [ ] The Nexus endpoints (`/api/relay/pair`, `/config`, `/ingest`, `/volumes`) don't
-      exist on the server side yet
+- [x] Standalone journey has no Media Nexus/Relay dependency
 - [ ] Real-card testing — see `../STATUS.md`

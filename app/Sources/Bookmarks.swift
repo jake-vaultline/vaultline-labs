@@ -25,6 +25,8 @@ enum Bookmarks {
         UserDefaults.standard.set(all, forKey: key)
     }
 
+    static func has(path: String) -> Bool { stored()[path] != nil }
+
     /// Resolves and starts access. Caller must `stopAccessing` when finished.
     static func resolve(path: String) -> URL? {
         guard let data = stored()[path] else { return nil }

@@ -1,42 +1,43 @@
 import Foundation
 
-/// The app's configuration — identical in shape whether the user typed it or a
-/// Media Nexus sent it.
-///
-/// That sameness is the point. Unpaired, the user owns this file. Paired, the
-/// server's copy wins and this becomes a read-only cache, so a studio can push
-/// one naming convention to twelve workstations instead of twelve editors each
-/// inventing their own. It's the client-config idea from the build process,
-/// applied at the edge.
+/// Local configuration for the standalone Labs utility. `team` is the portable
+/// customization layer; local destinations and bookmarks stay on this Mac.
 struct IngestConfig: Codable {
-
-    enum Source: String, Codable { case local, nexus }
-
     var version = 1
-    var source: Source = .local
-
     var naming = NamingConfig()
     var destinations: [DestinationConfig] = []
     var checksum: ChecksumAlgorithm = .xxhash64
     var workflow = WorkflowConfig()
     var form = IngestFormConfig()
+    /// Optional keeps pre-VLP-415 config files decodable. `effectiveTeam`
+    /// supplies the excellent standalone default until the normalized config
+    /// is saved.
+    var team: TeamConfiguration?
     /// Optional for backward compatibility with config files written before
     /// drive scan rules existed. The effective value is deliberately local and
-    /// conservative: scan manually unless the user or Media Nexus opts in.
+    /// conservative: scan manually unless the local team configuration opts in.
     var driveScanRules: DriveScanRules?
-    var nexus = NexusConfig()
     /// Separate hosted metadata projection for Drive Passports. Optional so
     /// existing config.json files written before Drive Tags continue to decode.
     var passport: PassportConfig?
 
-    /// True when the config came from a server and the UI should say so rather
-    /// than letting someone edit a field that will silently revert.
-    var isManaged: Bool { source == .nexus }
+    /// Retained as a UI compatibility seam while old managed-state branches are
+    /// removed. Standalone team configurations are always locally editable.
+    var isManaged: Bool { false }
 
     var effectiveDriveScanRules: DriveScanRules { driveScanRules ?? DriveScanRules() }
+    var effectiveTeam: TeamConfiguration { team ?? TeamConfiguration() }
+
+    mutating func normalizeForStandalone() {
+        version = max(version, 2)
+        if team == nil { team = TeamConfiguration() }
+        if form.fields.isEmpty || form.fields.allSatisfy({ $0.token == nil }) {
+            form = IngestFormConfig()
+        }
+    }
 }
 
-/// Rules for the Relay half of the app. A pattern scopes collection tracking to
+/// Rules for the optional local drive registry. A pattern scopes collection tracking to
 /// folders that carry a team's asset identity (for example `^JOB-[0-9]{4}$`).
 /// It is a regular expression over the folder name, not its machine-specific
 /// absolute path.
@@ -101,16 +102,6 @@ struct WorkflowConfig: Codable {
     }
 }
 
-struct NexusConfig: Codable {
-    var url = ""
-    var deviceName = ""
-    var pairedAt: Date?
-    /// Stored in the Keychain, never in the JSON. This field is transient.
-    var isPaired: Bool { pairedAt != nil && !url.isEmpty }
-
-    enum CodingKeys: String, CodingKey { case url, deviceName, pairedAt }
-}
-
 struct PassportConfig: Codable {
     var url = ""
     var deviceName = ""
@@ -135,7 +126,13 @@ final class ConfigStore: ObservableObject {
         return base.appendingPathComponent("config.json")
     }()
 
-    init() { load() }
+    init() {
+        load()
+        var normalized = config
+        normalized.normalizeForStandalone()
+        config = normalized
+        save()
+    }
 
     func load() {
         guard let data = try? Data(contentsOf: url),
@@ -145,26 +142,39 @@ final class ConfigStore: ObservableObject {
     }
 
     func update(_ change: (inout IngestConfig) -> Void) {
-        guard !config.isManaged else { return }   // server owns it while paired
         var c = config
         change(&c)
+        c.normalizeForStandalone()
         config = c
         save()
     }
 
-    /// Applied when a paired Nexus sends config down. Bypasses the managed guard
-    /// because this *is* the server writing.
-    func applyFromNexus(_ incoming: IngestConfig) {
-        var c = incoming
-        c.source = .nexus
-        c.nexus = config.nexus          // keep local pairing details
-        c.passport = config.passport    // separate hosted system; Nexus does not own it
+    func exportTeamConfiguration(to destination: URL) throws {
+        let package = try TeamConfigurationPackage(
+            team: try config.effectiveTeam.validated(), form: config.form,
+            naming: config.naming, checksum: config.checksum, workflow: config.workflow).validated()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(package).write(to: destination, options: .atomic)
+    }
+
+    func importTeamConfiguration(from source: URL) throws {
+        let data = try Data(contentsOf: source)
+        let package = try JSONDecoder().decode(TeamConfigurationPackage.self, from: data).validated()
+        let team = package.team
+        var c = config
+        c.team = team
+        c.form = package.form
+        c.naming = package.naming
+        c.checksum = package.checksum
+        c.workflow = package.workflow
+        c.normalizeForStandalone()
         config = c
         save()
     }
 
-    /// Passport connectivity remains locally controlled even when Media Nexus
-    /// manages the ingest workflow configuration.
+    /// Passport connectivity is local machine state and never part of a
+    /// portable team configuration.
     func updatePassport(_ change: (inout PassportConfig) -> Void) {
         var c = config
         var p = c.passport ?? PassportConfig()
@@ -177,14 +187,6 @@ final class ConfigStore: ObservableObject {
     func disconnectPassport() {
         var c = config
         c.passport = nil
-        config = c
-        save()
-    }
-
-    func unpair() {
-        var c = config
-        c.source = .local
-        c.nexus = NexusConfig()
         config = c
         save()
     }
