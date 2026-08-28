@@ -350,3 +350,18 @@ Translocation. Full scan of `SANDBOX-VOLUME-01`, then both exports:
 - **HTML**, 71,317 bytes: bar fills present, all 12 sections, 0 em dashes, `0.3.2`
 - **CSV**, 392,359 bytes: 2,271 rows including the full `All files` inventory, `0.3.2`
 - `8 h 46 min` in the Footage tile, where every earlier build rounded to `8 h`
+
+### Live, 2026-08-27
+
+- **GitHub Release `v0.3.2`** on the public `vaultline-labs` repo, asset checksum
+  `6caec7fb…127709`, byte-identical to the locally notarized build.
+- **Vercel production** carries `DRIVE_INSPECTOR_VERSION`, `DRIVE_INSPECTOR_DMG_URL`
+  and `DRIVE_INSPECTOR_DMG_SHA256`, and the deployment was promoted to
+  `www.vaultlinesolutions.com`. No code change was needed; that is what VLP-490's
+  endpoint was built for.
+- **Full visitor path verified**: `/drive-inspector` returns 200, the email gate
+  returns 0.3.2, the asset downloads at the expected checksum, and `spctl` accepts
+  it as Notarized Developer ID with `CFBundleShortVersionString` `0.3.2`.
+
+Hosting is GitHub Releases; the earlier "nowhere to put the DMG" note in this file
+was stale.
