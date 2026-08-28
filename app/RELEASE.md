@@ -6,6 +6,17 @@ xcodegen generate
 ./release.sh
 ```
 
+For an internal review artifact that does not use the Developer ID identity or notary credentials:
+
+```bash
+./release.sh --review
+```
+
+That produces `build/VaultlineIngest-<version>-review.dmg`, ad-hoc signed and guarded by the same
+sandbox/network checks. It is for local or clean-Mac qualification only and must never be uploaded
+or substituted into the public installer. `--no-notarize` is different: it uses the Developer ID
+identity but deliberately stops before Apple notarization.
+
 One-time setup — Team ID, Developer ID Application certificate, and the
 `vaultline-notary` keychain profile — is identical to Drive Inspector and documented in
 `../../vaultline-inspector/app/RELEASE.md`. If you've already shipped Inspector, there's

@@ -86,6 +86,12 @@ private struct TeamSettings: View {
                 Button("Export…") { exportConfiguration() }.buttonStyle(VLButton())
             }
 
+            VLNotice(title: "Free Vaultline setup", systemImage: "slider.horizontal.3") {
+                Text("Vaultline will configure the shoot form, naming, folder structure, destinations, and project-template workflow for your team at no charge. The result is one portable configuration for this same standalone app—not a custom source fork.")
+                    .font(VL.small).foregroundStyle(VL.inkDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let message = state.message {
                 Text(message).font(VL.small).foregroundStyle(VL.inkDim)
             }

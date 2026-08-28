@@ -277,6 +277,19 @@ enum ConfiguredJobBuilder {
     }
 
     static func create(_ plan: ConfiguredJobPlan, fileManager: FileManager = .default) throws -> Result {
+        guard DestinationPathSafety.contains(plan.jobRoot, under: plan.selectedRoot) else {
+            throw TeamConfigurationError.invalidPath(
+                "A linked folder would create \(plan.jobName) outside the selected destination.")
+        }
+        for relative in plan.workflow.folders {
+            let target = plan.jobRoot.appendingPathComponent(
+                WorkflowPath.normalized(relative), isDirectory: true)
+            guard DestinationPathSafety.contains(target, under: plan.jobRoot) else {
+                throw TeamConfigurationError.invalidPath(
+                    "A linked folder would create \(relative) outside the configured job.")
+            }
+        }
+
         // Preflight the only file creation before making any directories, so a
         // missing template or collision leaves the destination entirely alone.
         if let destination = plan.projectURL,

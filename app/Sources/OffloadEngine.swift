@@ -82,17 +82,99 @@ enum IngestPathSafety {
 }
 
 enum IngestPlanSafety {
-    static func issue(files: [IngestFile]) -> String? {
+    static func issue(files: [IngestFile], destinations: [Destination] = []) -> String? {
         var seen = Set<String>()
         for file in files {
+            let relative = file.destinationRelativePath.replacingOccurrences(of: "\\", with: "/")
+            let components = relative.split(separator: "/", omittingEmptySubsequences: false)
+            guard !relative.hasPrefix("/"), !components.contains(".."),
+                  !components.contains("."), !components.contains("") else {
+                return "A planned destination path is not safe: \(file.destinationRelativePath)"
+            }
             let normalized = file.destinationRelativePath
                 .precomposedStringWithCanonicalMapping
                 .lowercased()
             guard seen.insert(normalized).inserted else {
                 return "More than one source file would land at \(file.destinationRelativePath). Adjust the rename pattern before starting."
             }
+            for destination in destinations {
+                let target = URL(fileURLWithPath: destination.root, isDirectory: true)
+                    .appendingPathComponent(file.destinationRelativePath)
+                guard DestinationPathSafety.contains(target, under: URL(
+                    fileURLWithPath: destination.root, isDirectory: true)) else {
+                    return "\(destination.label) contains a linked folder that would send \(file.destinationRelativePath) outside the selected destination. Remove the link or choose a different destination."
+                }
+            }
         }
         return nil
+    }
+}
+
+enum DestinationPathSafety {
+    static func contains(_ target: URL, under root: URL) -> Bool {
+        let resolvedRoot = normalized(root)
+        let resolvedTarget = normalized(target)
+        return resolvedTarget == resolvedRoot || resolvedTarget.hasPrefix(resolvedRoot + "/")
+    }
+
+    private static func normalized(_ url: URL) -> String {
+        // `resolvingSymlinksInPath()` does not resolve a linked ancestor when
+        // the leaf does not exist yet—the exact state before a copy. Resolve
+        // the nearest existing ancestor first, then append the uncreated tail.
+        var existing = url.standardizedFileURL
+        var tail: [String] = []
+        while !FileManager.default.fileExists(atPath: existing.path) {
+            let parent = existing.deletingLastPathComponent()
+            if parent.path == existing.path { break }
+            tail.insert(existing.lastPathComponent, at: 0)
+            existing = parent
+        }
+        var resolved = existing.resolvingSymlinksInPath()
+        for component in tail { resolved.appendPathComponent(component) }
+        let path = resolved.standardizedFileURL.path
+        return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+    }
+}
+
+/// Refuses an ingest before the first source byte is read when any destination
+/// cannot hold its missing files. Existing paths do not need additional space:
+/// the engine will hash them and either resume or report a conflict without
+/// rewriting them.
+enum DestinationCapacity {
+    static let safetyReserve: Int64 = 512 * 1024 * 1024
+
+    static func missingBytes(files: [IngestFile], destination: Destination,
+                             fileManager: FileManager = .default) -> Int64 {
+        files.reduce(into: Int64(0)) { total, file in
+            let path = (destination.root as NSString)
+                .appendingPathComponent(file.destinationRelativePath)
+            if !fileManager.fileExists(atPath: path) { total += file.size }
+        }
+    }
+
+    static func issue(files: [IngestFile], destinations: [Destination],
+                      availableCapacity: (String) -> Int64? = availableBytes) -> String? {
+        for destination in destinations {
+            let missing = missingBytes(files: files, destination: destination)
+            guard missing > 0, let available = availableCapacity(destination.root) else { continue }
+            let required = missing.addingReportingOverflow(safetyReserve)
+            let threshold = required.overflow ? Int64.max : required.partialValue
+            guard available < threshold else { continue }
+            return "\(destination.label) needs about \(formatted(threshold)) free for this ingest, but only \(formatted(available)) is available. Choose another destination or free space."
+        }
+        return nil
+    }
+
+    private static func availableBytes(at path: String) -> Int64? {
+        guard let attributes = try? FileManager.default.attributesOfFileSystem(forPath: path),
+              let value = attributes[.systemFreeSize] as? NSNumber else { return nil }
+        return value.int64Value
+    }
+
+    private static func formatted(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }
 
@@ -341,6 +423,7 @@ actor OffloadEngine {
             throw OffloadError.unreadable(file.sourcePath)
         }
         defer { try? input.close() }
+        let sourceAttributes = try? FileManager.default.attributesOfItem(atPath: file.sourcePath)
 
         let sessionID = UUID().uuidString
         var staged: [StagedDestination] = []
@@ -395,6 +478,19 @@ actor OffloadEngine {
         for item in staged {
             try item.handle.synchronize()
             try item.handle.close()
+            // Camera timestamps are operational metadata. Preserve the source
+            // dates on the destination copy instead of making every clip look
+            // as though it was created at ingest time. Some filesystems do not
+            // support creation dates, so modification time is the mandatory
+            // portable value and creation time is best-effort.
+            if let modified = sourceAttributes?[.modificationDate] {
+                try FileManager.default.setAttributes(
+                    [.modificationDate: modified], ofItemAtPath: item.stagingURL.path)
+            }
+            if let created = sourceAttributes?[.creationDate] {
+                try? FileManager.default.setAttributes(
+                    [.creationDate: created], ofItemAtPath: item.stagingURL.path)
+            }
         }
 
         let sourceHash = hasher.hexDigest()
@@ -417,6 +513,13 @@ actor OffloadEngine {
             }
 
             do {
+                guard DestinationPathSafety.contains(
+                    item.finalURL,
+                    under: URL(fileURLWithPath: item.destination.root, isDirectory: true)) else {
+                    states[item.destination.root] = .failed(
+                        "a linked folder would publish this file outside the selected destination")
+                    continue
+                }
                 try FileManager.default.createDirectory(
                     at: item.finalURL.deletingLastPathComponent(),
                     withIntermediateDirectories: true)
@@ -463,25 +566,39 @@ actor OffloadEngine {
     /// exactly what their files will be called *before* anything is written.
     /// Discovering a rename after the fact is how people lose track of footage.
     nonisolated static func plan(source: URL, naming: NamingConfig) -> [IngestFile] {
-        let skip: Set<String> = [".ds_store", "thumbs.db", ".spotlight-v100", ".fseventsd"]
-        let root = source.path
+        let skippedFiles: Set<String> = [".ds_store", "thumbs.db"]
+        let skippedDirectories: Set<String> = [
+            ".spotlight-v100", ".fseventsd", ".trashes", ".temporaryitems"
+        ]
+        // `enumerator(at:)` may canonicalize `/var` to `/private/var` while
+        // walking hidden files. Ask FileManager for relative names directly so
+        // a path alias can never turn into an accidental absolute output path.
+        let root = source.standardizedFileURL
         var raw: [(path: String, rel: String, size: Int64)] = []
 
-        guard let e = FileManager.default.enumerator(
-            at: source,
-            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
+        guard let e = FileManager.default.enumerator(atPath: root.path) else { return [] }
 
-        for case let url as URL in e {
-            guard let v = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
-                  v.isRegularFile == true else { continue }
-            if skip.contains(url.lastPathComponent.lowercased()) { continue }
+        for case let relative as String in e {
+            let url = root.appendingPathComponent(relative)
+            guard let v = try? url.resourceValues(
+                forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            else { continue }
+            let lowerName = url.lastPathComponent.lowercased()
+            if v.isSymbolicLink == true {
+                e.skipDescendants()
+                continue
+            }
+            if v.isDirectory == true, skippedDirectories.contains(lowerName) {
+                e.skipDescendants()
+                continue
+            }
+            guard v.isRegularFile == true else { continue }
+            // AppleDouble sidecars are Finder metadata, not camera assets.
+            // macOS creates them as `._*` files on ExFAT/FAT volumes, including
+            // beside otherwise valuable hidden camera metadata.
+            if skippedFiles.contains(lowerName) || lowerName.hasPrefix("._") { continue }
 
-            var rel = url.path
-            if rel.hasPrefix(root) { rel = String(rel.dropFirst(root.count)) }
-            rel = rel.hasPrefix("/") ? String(rel.dropFirst()) : rel
-            raw.append((url.path, rel, Int64(v.fileSize ?? 0)))
+            raw.append((url.path, relative, Int64(v.fileSize ?? 0)))
         }
 
         // Stable order so sequence numbers are reproducible across re-runs —

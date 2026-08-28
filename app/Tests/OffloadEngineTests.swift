@@ -35,6 +35,65 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: try XCTUnwrap(jobPlan.projectURL).path))
     }
 
+    func testPlannerKeepsHiddenCameraMetadataAndSkipsOnlyOperatingSystemDebris() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("CARD", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: source.appendingPathComponent("PRIVATE/M4ROOT", isDirectory: true),
+            withIntermediateDirectories: true)
+        try Data("camera-metadata".utf8).write(
+            to: source.appendingPathComponent("PRIVATE/M4ROOT/.MEDIAPRO.XML"))
+        try Data("finder-junk".utf8).write(to: source.appendingPathComponent(".DS_Store"))
+        try Data("apple-double".utf8).write(
+            to: source.appendingPathComponent("PRIVATE/M4ROOT/._.MEDIAPRO.XML"))
+        try Data("apple-double".utf8).write(
+            to: source.appendingPathComponent("PRIVATE/M4ROOT/._A001.mov"))
+        let outside = root.appendingPathComponent("outside.mov")
+        try Data("outside-source".utf8).write(to: outside)
+        try FileManager.default.createSymbolicLink(
+            at: source.appendingPathComponent("linked.mov"), withDestinationURL: outside)
+        let outsideDirectory = root.appendingPathComponent("outside", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        try Data("outside-directory".utf8).write(
+            to: outsideDirectory.appendingPathComponent("linked-directory.mov"))
+        try FileManager.default.createSymbolicLink(
+            at: source.appendingPathComponent("LINKED-DIRECTORY"),
+            withDestinationURL: outsideDirectory)
+        let spotlight = source.appendingPathComponent(".Spotlight-V100/Store", isDirectory: true)
+        try FileManager.default.createDirectory(at: spotlight, withIntermediateDirectories: true)
+        try Data("index-junk".utf8).write(to: spotlight.appendingPathComponent("index"))
+
+        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+
+        XCTAssertEqual(files.map(\.relativePath), ["PRIVATE/M4ROOT/.MEDIAPRO.XML"])
+    }
+
+    func testCapacityPreflightCountsOnlyMissingFilesAndBlocksEveryDestinationUpFront() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destinationRoot = root.appendingPathComponent("DEST", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        try Data(repeating: 0x1, count: 10).write(to: destinationRoot.appendingPathComponent("existing.mov"))
+        let destination = Destination(root: destinationRoot.path, label: "Field SSD", isPrimary: true)
+        let files = [
+            IngestFile(sourcePath: "/CARD/existing.mov", relativePath: "existing.mov",
+                       destinationRelativePath: "existing.mov", size: 10),
+            IngestFile(sourcePath: "/CARD/new.mov", relativePath: "new.mov",
+                       destinationRelativePath: "new.mov", size: 20),
+        ]
+
+        XCTAssertEqual(DestinationCapacity.missingBytes(files: files, destination: destination), 20)
+        let issue = DestinationCapacity.issue(
+            files: files, destinations: [destination],
+            availableCapacity: { _ in DestinationCapacity.safetyReserve + 19 })
+        XCTAssertNotNil(issue)
+        XCTAssertTrue(issue?.contains("Field SSD") == true)
+        XCTAssertNil(DestinationCapacity.issue(
+            files: files, destinations: [destination],
+            availableCapacity: { _ in DestinationCapacity.safetyReserve + 20 }))
+    }
+
     func testFanOutVerifiesTwoDestinationsAndLeavesSourceUntouched() async throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -58,6 +117,28 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: second.appendingPathComponent("clip.mov")), Data("only-copy-this".utf8))
         XCTAssertEqual(try Data(contentsOf: source.appendingPathComponent("clip.mov")), Data("only-copy-this".utf8))
         XCTAssertTrue(results[0].destinations.values.allSatisfy(\.isVerified))
+    }
+
+    func testOffloadPreservesSourceModificationDate() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeCard(in: root, data: Data("timestamped".utf8))
+        let sourceFile = source.appendingPathComponent("clip.mov")
+        let expected = Date(timeIntervalSince1970: 1_600_000_000)
+        try FileManager.default.setAttributes(
+            [.modificationDate: expected], ofItemAtPath: sourceFile.path)
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+
+        let (progress, _) = await OffloadEngine(bufferSize: 3).run(
+            files: OffloadEngine.plan(source: source, naming: NamingConfig()),
+            destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
+            algorithm: .xxhash64, onProgress: { _ in })
+
+        XCTAssertEqual(progress.phase, .done)
+        let copied = destination.appendingPathComponent("clip.mov")
+        let actual = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: copied.path)[.modificationDate] as? Date)
+        XCTAssertEqual(actual.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 1)
     }
 
     func testDifferentExistingFileIsReportedAndNeverOverwritten() async throws {
@@ -214,6 +295,18 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertEqual(manifest.deletingLastPathComponent(), root)
     }
 
+    func testAtomicRecordWriterNeverReplacesExistingFileAndLeavesNoTemporaryRecord() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let final = root.appendingPathComponent("INGEST-NOTES.txt")
+        try Data("first".utf8).write(to: final)
+
+        XCTAssertThrowsError(try AtomicNoReplaceWriter.write(Data("second".utf8), to: final))
+        XCTAssertEqual(try Data(contentsOf: final), Data("first".utf8))
+        let children = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        XCTAssertEqual(children, ["INGEST-NOTES.txt"])
+    }
+
     func testPathSafetyRejectsDestinationInsideSourceAndOverlappingDestinations() {
         let source = URL(fileURLWithPath: "/Volumes/CARD")
         XCTAssertNotNil(IngestPathSafety.issue(
@@ -243,6 +336,26 @@ final class OffloadEngineTests: XCTestCase {
             destinationRelativePath: "renamed/clip.MOV", size: 1)
         XCTAssertNotNil(IngestPlanSafety.issue(files: [first, second]))
         XCTAssertNil(IngestPlanSafety.issue(files: [first]))
+    }
+
+    func testPlanSafetyRejectsDestinationSymlinkThatEscapesSelectedRoot() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destinationRoot = root.appendingPathComponent("DEST", isDirectory: true)
+        let outside = root.appendingPathComponent("OUTSIDE", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: destinationRoot.appendingPathComponent("DCIM"),
+            withDestinationURL: outside)
+        let file = IngestFile(
+            sourcePath: "/CARD/DCIM/A001.mov", relativePath: "DCIM/A001.mov",
+            destinationRelativePath: "DCIM/A001.mov", size: 1)
+        let destination = Destination(
+            root: destinationRoot.path, label: "Destination", isPrimary: true)
+
+        XCTAssertNotNil(IngestPlanSafety.issue(
+            files: [file], destinations: [destination]))
     }
 
     func testChecksumAlgorithmsMatchCanonicalIndependentVectorsWhenStreamed() {

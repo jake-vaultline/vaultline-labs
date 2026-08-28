@@ -35,22 +35,29 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 27 of 27 native tests. Its universal Intel/Apple Silicon Release review
-build passes strict local signature verification, is sandboxed, and has no network entitlement. A
-visible synthetic-card exercise completed the brief, exact job preview, folder creation, copy,
-read-back verification, ASC MHL, ingest record, no-rewrite rerun, and visible conflict journeys.
-Independent SHA-256 checks matched the source and clean destination copies; the generated MHL files
-validated against the official ASC reference XSD. See [AUDIT.md](AUDIT.md) for the durable receipt.
+The 0.3.0 source passes 33 of 33 native tests and static analysis. Its build 6 universal
+Intel/Apple Silicon review DMG has SHA-256
+`7d3d907dab9cf776166f7e1f9851a2e9f00ff74064f86cadd03ae711051aadfb`, passes strict local
+signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
+card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
+handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
+bookmark restoration, and no-rewrite rerun. Independent SHA-256 checks matched all intended source
+and destination copies and confirmed the source volume was unchanged. See [AUDIT.md](AUDIT.md) for
+the durable receipt.
 
-VLP-415 still requires independent exact-diff review before acceptance. Clean-Mac and physical-card
-qualification, Developer ID signing, notarization, public download hosting, website funnel,
+The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
+and launch checks on `VL-Mini-02` running macOS 26.6.2. That device had no physical card or external
+drive, and its existing GUI session was locked against remote input, so a clean-Mac UI offload and
+physical-media behavior remain `not_run`. VLP-415 still requires independent exact-diff review
+before acceptance. Physical-card qualification, Developer ID signing, notarization, public download hosting, website funnel,
 campaign activation, production/client deployment, and a real team's configuration are separate
 release-boundary work.
 
 ## Checks still required before public release
 
-- Qualify the accepted review build on a clean Mac with a physical camera card and external
-  destination, including a real disconnect/reconnect.
+- Qualify the accepted review build with a physical camera card and external destination, including
+  a real cable disconnect/reconnect. Repeat the visible journey on a clean Mac when remote input is
+  available.
 - Independently review the exact implementation commit.
 - Review the exact public positioning, version, and download experience.
 

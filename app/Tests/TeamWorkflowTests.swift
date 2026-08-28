@@ -45,6 +45,11 @@ final class TeamWorkflowTests: XCTestCase {
         let package = try JSONDecoder().decode(
             TeamConfigurationPackage.self, from: Data(contentsOf: url)).validated()
         XCTAssertEqual(package.team.teamName, "Example Media Team")
+        XCTAssertEqual(Set(package.form.fields.compactMap(\.token)),
+                       Set(["shootDate", "shooter", "location", "project", "camera",
+                            "jobNumber", "reel", "notes"]))
+        XCTAssertEqual(package.team.workflows.first?.folders,
+                       IngestWorkflowPreset.standard.folders)
     }
 
     func testDateAndTeamTokensRenderWithoutRetypingDate() throws {
@@ -176,6 +181,23 @@ final class TeamWorkflowTests: XCTestCase {
             }
         }
         XCTAssertEqual(try Data(contentsOf: collision), Data("existing".utf8))
+    }
+
+    func testBuilderRejectsExistingLinkedFolderThatEscapesSelectedDestination() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outside = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: outside) }
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("01 Shoots"),
+            withDestinationURL: outside)
+        let plan = try ConfiguredJobPlan.make(
+            workflow: .standard, selectedRoot: root,
+            values: .init(fields: ["project": "Launch"], date: fixedDate))
+
+        XCTAssertThrowsError(try ConfiguredJobBuilder.create(plan))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: outside.appendingPathComponent(plan.jobName).path))
     }
 
     private func temporaryDirectory() -> URL {

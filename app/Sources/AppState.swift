@@ -177,6 +177,12 @@ final class AppState: ObservableObject {
         }
         let usable = destinations
 
+        if let capacityIssue = DestinationCapacity.issue(files: plan, destinations: usable) {
+            scopes.releaseAll()
+            message = "No files were copied. \(capacityIssue)"
+            return
+        }
+
         isRunning = true
         message = nil
         let files = plan
@@ -302,7 +308,9 @@ final class AppState: ObservableObject {
         return IngestPathSafety.issue(source: sourceURL, destinations: destinations)
     }
 
-    var unsafePlanReason: String? { IngestPlanSafety.issue(files: plan) }
+    var unsafePlanReason: String? {
+        IngestPlanSafety.issue(files: plan, destinations: destinations)
+    }
 
     var workflowValues: WorkflowTemplate.Values {
         var values: [String: String] = [:]
@@ -325,6 +333,9 @@ final class AppState: ObservableObject {
     /// active ingest destination. Existing folders and project files are never
     /// replaced; template collisions are surfaced as a blocking error.
     func createConfiguredJob(workflow: IngestWorkflowPreset, in selectedRoot: URL) {
+        // A failed second attempt must not inherit the success result from a
+        // prior job and cause the sheet to dismiss as though creation worked.
+        lastConfiguredJob = nil
         let jobScope = ScopeHolder()
         do {
             guard jobScope.open(paths: [selectedRoot.path]).contains(selectedRoot.path) else {
@@ -344,7 +355,10 @@ final class AppState: ObservableObject {
             let result = try ConfiguredJobBuilder.create(plan)
             lastConfiguredJob = result
             Bookmarks.save(selectedRoot)
-            Bookmarks.save(plan.jobRoot)
+            // The destination list stores the exact media landing folder. Save
+            // a bookmark for that exact path so a quit/relaunch does not turn a
+            // configured job into an inaccessible stale destination.
+            Bookmarks.save(plan.mediaRoot)
             configStore.update { c in
                 c.destinations.removeAll()
                 c.destinations.append(DestinationConfig(

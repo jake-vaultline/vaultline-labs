@@ -3,7 +3,8 @@
 # Vaultline Ingest — release pipeline.
 #
 #   ./release.sh                  build, sign, notarize, staple, package
-#   ./release.sh --no-notarize    local test build
+#   ./release.sh --no-notarize    Developer ID-signed internal candidate
+#   ./release.sh --review         ad-hoc signed review DMG; no protected credential
 #
 # Setup is in RELEASE.md. Run from the app/ directory.
 #
@@ -14,7 +15,13 @@ PROJECT="$SCHEME.xcodeproj"
 KEYCHAIN_PROFILE="vaultline-notary"
 BUILD="build"
 NOTARIZE=1
-[[ "${1:-}" == "--no-notarize" ]] && NOTARIZE=0
+REVIEW=0
+case "${1:-}" in
+  "") ;;
+  --no-notarize) NOTARIZE=0 ;;
+  --review) NOTARIZE=0; REVIEW=1 ;;
+  *) printf "Unknown option: %s\n" "$1" >&2; exit 2 ;;
+esac
 
 say()  { printf "\n\033[1m▸ %s\033[0m\n" "$*"; }
 fail() { printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
@@ -22,13 +29,23 @@ fail() { printf "\n\033[31m✗ %s\033[0m\n" "$*" >&2; exit 1; }
 [[ -d "$PROJECT" ]] || fail "No $PROJECT here. Run from app/ (xcodegen generate first)."
 
 VERSION=$(grep -m1 'MARKETING_VERSION' project.yml | sed 's/.*"\(.*\)".*/\1/')
-DMG="$BUILD/$SCHEME-$VERSION.dmg"
+if [[ $REVIEW -eq 1 ]]; then
+  DMG="$BUILD/$SCHEME-$VERSION-review.dmg"
+else
+  DMG="$BUILD/$SCHEME-$VERSION.dmg"
+fi
 
 rm -rf "$BUILD"; mkdir -p "$BUILD"
 
 say "Archiving $SCHEME $VERSION"
-xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
-           -archivePath "$BUILD/$SCHEME.xcarchive" clean archive
+ARCHIVE_ARGS=(
+  -project "$PROJECT" -scheme "$SCHEME" -configuration Release
+  -archivePath "$BUILD/$SCHEME.xcarchive" clean archive
+)
+if [[ $REVIEW -eq 1 ]]; then
+  ARCHIVE_ARGS+=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=)
+fi
+xcodebuild "${ARCHIVE_ARGS[@]}"
 
 say "Preparing the signed app"
 # The archive product is already a Developer ID–signed, hardened, universal app.
@@ -105,7 +122,10 @@ if [[ $NOTARIZE -eq 1 ]]; then
   echo "  SHA256=\"$SHA\""
   echo
   echo "Then upload $DMG"
+elif [[ $REVIEW -eq 1 ]]; then
+  echo "Ad-hoc review candidate only — Developer ID signing, notarization, and stapling were not attempted."
+  echo "Do not update the public installer or upload this DMG."
 else
-  echo "Local release candidate only — notarization and stapling were skipped."
+  echo "Developer ID-signed internal candidate only — notarization and stapling were skipped."
   echo "Do not update the public installer or upload this DMG."
 fi

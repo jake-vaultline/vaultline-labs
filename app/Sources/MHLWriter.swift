@@ -53,7 +53,7 @@ enum MHLWriter {
 
         xml += "  </hashes>\n</hashlist>\n"
 
-        try Data(xml.utf8).write(to: url, options: .withoutOverwriting)
+        try AtomicNoReplaceWriter.write(Data(xml.utf8), to: url)
         return url
     }
 
@@ -78,5 +78,20 @@ enum MHLWriter {
          .replacingOccurrences(of: "<", with: "&lt;")
          .replacingOccurrences(of: ">", with: "&gt;")
          .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+}
+
+/// Writes small records atomically without ever replacing an existing file.
+/// Foundation's `.atomic` and `.withoutOverwriting` options cannot safely be
+/// combined on every supported macOS release, so publish a unique same-folder
+/// temporary file with a no-replace move instead.
+enum AtomicNoReplaceWriter {
+    static func write(_ data: Data, to finalURL: URL,
+                      fileManager: FileManager = .default) throws {
+        let temporaryURL = finalURL.deletingLastPathComponent()
+            .appendingPathComponent(".vaultline-record-\(UUID().uuidString).tmp")
+        defer { try? fileManager.removeItem(at: temporaryURL) }
+        try data.write(to: temporaryURL, options: .atomic)
+        try fileManager.moveItem(at: temporaryURL, to: finalURL)
     }
 }

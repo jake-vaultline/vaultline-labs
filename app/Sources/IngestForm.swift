@@ -200,7 +200,7 @@ enum IngestSidecar {
                 .appendingPathComponent(ext.isEmpty ? "\(stem)-\(n)" : "\(stem)-\(n).\(ext)")
             n += 1
         }
-        try Data(text.utf8).write(to: final, options: .withoutOverwriting)
+        try AtomicNoReplaceWriter.write(Data(text.utf8), to: final)
         return final
     }
 

@@ -8,7 +8,9 @@
       { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F03", "kind" : "text", "label" : "Where was it shot?", "required" : false, "sticky" : true, "options" : [], "defaultValue" : "", "token" : "location" },
       { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F04", "kind" : "text", "label" : "What was shot?", "required" : true, "sticky" : true, "options" : [], "defaultValue" : "", "token" : "project" },
       { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F05", "kind" : "text", "label" : "Camera", "required" : false, "sticky" : true, "options" : [], "defaultValue" : "", "token" : "camera" },
-      { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F06", "kind" : "text", "label" : "Job number", "required" : false, "sticky" : true, "options" : [], "defaultValue" : "", "token" : "jobNumber" }
+      { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F06", "kind" : "text", "label" : "Job number", "required" : false, "sticky" : true, "options" : [], "defaultValue" : "", "token" : "jobNumber" },
+      { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F07", "kind" : "text", "label" : "Card / reel", "required" : false, "sticky" : false, "options" : [], "defaultValue" : "", "token" : "reel" },
+      { "id" : "D1CFE77B-38F9-47F7-9301-73EAB8B77F08", "kind" : "longText", "label" : "Notes", "required" : false, "sticky" : false, "options" : [], "defaultValue" : "", "token" : "notes" }
     ],
     "sidecarName" : "INGEST-NOTES.txt",
     "writeSidecar" : true
@@ -25,7 +27,7 @@
         "detail" : "Create the team's shoot and edit structure in 01 Shoots.",
         "parentSubpath" : "01 Shoots",
         "jobNameTemplate" : "{date:yyMMdd}_{project}",
-        "folders" : ["01_Media/Camera", "01_Media/Audio", "01_Media/Stills", "02_Edit/Premiere", "02_Edit/Proxies", "02_Edit/Graphics", "03_Exports", "04_Documents"],
+        "folders" : ["01_Media/Camera", "01_Media/Audio", "01_Media/Stills", "02_Edit/Premiere", "02_Edit/Proxies", "02_Edit/Graphics", "02_Edit/Music", "02_Edit/VO", "03_Exports", "04_Documents"],
         "mediaFolder" : "01_Media/Camera",
         "projectTemplateBase64" : null,
         "projectFolder" : "02_Edit/Premiere",
