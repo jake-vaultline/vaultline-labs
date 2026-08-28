@@ -54,7 +54,8 @@ was created.
 These rules outrank every feature:
 
 1. Copy, never move. The source card remains untouched.
-2. Never delete.
+2. Never delete operator media or foreign data. Temporary transfer cleanup is allowed only for an
+   exact app-owned, marker-bound session after proving that no live process holds its lock.
 3. Never overwrite. Matching content counts as already verified; different content is a conflict.
 4. Read every destination copy back and match its checksum before reporting verification.
 5. Preserve card subfolder structure beneath the configured media landing folder.
@@ -63,8 +64,9 @@ These rules outrank every feature:
 8. Reject configuration paths that could escape the selected destination.
 9. Stage every new copy under an app-owned hidden path, verify it there, then atomically publish it
    at the intended media path. Cancellation never leaves a partial final file.
-10. On restart, remove only abandoned app-owned staging data; a rerun hashes and skips complete
-    matching files, so interruption recovery needs no fragile transfer database.
+10. On restart, remove only marker-bound app staging whose session lock proves it is abandoned;
+    preserve foreign and active-session contents. A rerun hashes and skips complete matching files,
+    so interruption recovery needs no fragile transfer database.
 11. Block destinations inside the source, overlapping destination roots, and rename plans that
     would collapse multiple source files onto one destination path.
 

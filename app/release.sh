@@ -105,9 +105,13 @@ if [[ $NOTARIZE -eq 1 ]]; then
   cp -R "$APP" "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
   hdiutil create -volname "Vaultline Ingest" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+  # Repackaging around the newly stapled app changes the DMG bytes. Submit the
+  # final image too; the first image's ticket cannot be stapled to this one.
+  xcrun notarytool submit "$DMG" --keychain-profile "$KEYCHAIN_PROFILE" --wait
   xcrun stapler staple "$DMG"
 
   say "Gatekeeper check"
+  xcrun stapler validate "$APP"
   xcrun stapler validate "$DMG"
   spctl -a -vvv -t install "$APP" 2>&1 | sed 's/^/  /'
 fi

@@ -13,8 +13,9 @@
       Read-WRITE, unlike Inspector: this app copies media to destinations the
       user picks. It still only ever sees what they hand it.
 
-      It has no delete or move path — see OffloadEngine. Source cards are read
-      and never modified.
+      It never deletes or moves operator media. The only cleanup path removes
+      marker-bound, lock-proven temporary transfer sessions created by this app;
+      source cards are read and never modified.
     -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>

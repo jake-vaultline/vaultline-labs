@@ -19,14 +19,15 @@ task branch includes:
   configured media landing folder;
 - safe copying of an actual team-supplied Premiere template under a derived name, with no invented
   project files and no overwrite;
-- copy/never-move, never-delete, never-overwrite, staged writes, read-back checksum, MHL, sidecar,
-  safe restart, interruption cleanup, explicit partial-result behavior, and deterministic
-  destination-disconnect/reconnect coverage;
+- copy/never-move, no operator-media deletion, never-overwrite, staged writes, read-back checksum,
+  MHL, sidecar, marker-and-lock-proven restart cleanup, explicit partial-result behavior, and
+  deterministic destination-disconnect/reconnect coverage;
 - truthful per-destination receipt wording when MHL is written, disabled, or cannot be written,
   with output problems separated from media-verification language;
-- off-main, cancellable card discovery with an explicit scanning state, immediate cancellation
-  when the operator changes sources, stale-result protection, and direct selection of camera
-  package folders such as RED `.RDC` clips;
+- off-main, cancellable, fail-closed card discovery with an explicit scanning state, immediate
+  cancellation when the operator changes sources, visible blocking errors for unreadable source
+  subtrees, stale-result protection, and direct selection of camera package folders such as RED
+  `.RDC` clips;
 - a reusable example configuration and customization/QA runbook; and
 - focused tests for defaults, package round trips, token rendering, validation, structure creation,
   template creation/collision behavior, and plan-to-output.
@@ -46,9 +47,9 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes 45 of 45 native tests and static analysis. Its build 16 universal
+The 0.3.0 source passes 49 of 49 native tests and static analysis. Its build 17 universal
 Intel/Apple Silicon review DMG has SHA-256
-`5e5b8a4e346907b4cac075528888eac9896bcd09969a54b6d983d9ff69a525ab`, passes strict local
+`3eff7ad0242e72e2d7ca44fd833d6fb50c89b0faef6ef8298dc170905b64ab44`, passes strict local
 signature verification, is sandboxed, and has no network entitlement. A visible read-only ExFAT
 card exercise completed the brief, exact job preview, folder creation, hidden camera-metadata
 handling, copy, read-back verification, ASC MHL, ingest record, timestamp preservation, relaunch,
@@ -76,6 +77,9 @@ persistent and accessibility-labeled. Build 16 rejects an existing file occupyin
 folder path before changing the destination, refuses to publish a copy when its source changes
 during transfer, supports jobs directly under the selected destination when no fixed parent folder
 is configured, and makes form-field organization controls persistently accessible.
+Build 17 responds to the independent review by preserving foreign and active staging contents,
+cleaning only marker-bound abandoned app sessions, blocking ingest when any source subtree cannot
+be read, and correcting the release pipeline so the byte-final DMG is submitted before stapling.
 
 The exact DMG also passed checksum, install, strict-signature, architecture, entitlement, version,
 and launch checks on `VL-Mini-02` running macOS 26.6.2. Separately, the exact transfer engine copied,
@@ -83,18 +87,20 @@ read back, and verified a disposable 64 MB file on the attached 2 TB physical ex
 `SANDBOX-VOLUME-01`, preserved its modification time and source bytes, then reran with zero bytes
 rewritten. The clean Mac had no physical card or external drive, and its existing GUI session was
 locked against remote input, so a clean-Mac UI offload, physical camera card, and live cable
-disconnect/reconnect remain `not_run`. VLP-415 still requires independent exact-diff review before
-acceptance. Physical-card qualification, Developer ID signing, notarization, public download hosting, website funnel,
-campaign activation, production/client deployment, and a real team's configuration are separate
-release-boundary work.
+disconnect/reconnect remain `not_run`. VLP-415 still requires a fresh independent exact-commit
+review of build 17 before acceptance. Developer ID signing, notarization, public download hosting,
+and the website funnel are authorized release work. Physical-card qualification, campaign
+activation, production/client deployment, and a real team's configuration remain separate or
+explicitly deferred work.
 
 ## Checks still required before public release
 
-- Qualify the accepted review build with a physical camera card and external destination, including
-  a real cable disconnect/reconnect. Repeat the visible journey on a clean Mac when remote input is
-  available.
-- Independently review the exact implementation commit.
-- Review the exact public positioning, version, and download experience.
+- Independently review the exact build 17 implementation commit.
+- Sign, notarize, staple, and independently verify the byte-final package.
+- Publish and verify the exact public positioning, version, download, checksum, and install path.
+
+Physical camera-card, live cable disconnect/reconnect, and real-team configuration exercises are
+deferred; the release receipt must continue to describe them as `not_run`.
 
 See [spec.md](spec.md) for product authority and [CONFIGURATION.md](CONFIGURATION.md) for the
 customization contract.

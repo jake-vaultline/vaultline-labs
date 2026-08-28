@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import Darwin
 @testable import VaultlineIngest
 
 final class OffloadEngineTests: XCTestCase {
@@ -18,7 +19,7 @@ final class OffloadEngineTests: XCTestCase {
             selectedRoot: root.appendingPathComponent("DESTINATION", isDirectory: true),
             values: .init(fields: ["project": "Launch Film"]))
         _ = try ConfiguredJobBuilder.create(jobPlan)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
 
         let (progress, results) = await OffloadEngine(bufferSize: 4).run(
             files: files,
@@ -64,7 +65,7 @@ final class OffloadEngineTests: XCTestCase {
         try FileManager.default.createDirectory(at: spotlight, withIntermediateDirectories: true)
         try Data("index-junk".utf8).write(to: spotlight.appendingPathComponent("index"))
 
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
 
         XCTAssertEqual(files.map(\.relativePath), ["PRIVATE/M4ROOT/.MEDIAPRO.XML"])
     }
@@ -88,8 +89,31 @@ final class OffloadEngineTests: XCTestCase {
                 return checks < 5
             })
 
-        XCTAssertNil(plan)
+        guard case .cancelled = plan else {
+            return XCTFail("Expected the obsolete source scan to cancel")
+        }
         XCTAssertLessThan(checks, 20)
+    }
+
+    func testPlannerFailsClosedWhenAnySourceSubtreeIsUnreadable() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("CARD", isDirectory: true)
+        let blocked = source.appendingPathComponent("PRIVATE", isDirectory: true)
+        try FileManager.default.createDirectory(at: blocked, withIntermediateDirectories: true)
+        try Data("visible".utf8).write(to: source.appendingPathComponent("A001.mov"))
+        try Data("must-not-disappear".utf8).write(to: blocked.appendingPathComponent("B001.mov"))
+        XCTAssertEqual(Darwin.chmod(blocked.path, 0), 0)
+        defer { _ = Darwin.chmod(blocked.path, S_IRWXU) }
+
+        let result = OffloadEngine.planCancellable(
+            source: source, naming: NamingConfig(), shouldContinue: { true })
+
+        guard case .failed(let failure) = result else {
+            return XCTFail("An unreadable subtree must block the entire source plan")
+        }
+        XCTAssertTrue(failure.relativePath.contains("PRIVATE"))
+        XCTAssertTrue(failure.operatorMessage.contains("Nothing can be ingested"))
     }
 
     func testCapacityPreflightCountsOnlyMissingFilesAndBlocksEveryDestinationUpFront() throws {
@@ -125,7 +149,7 @@ final class OffloadEngineTests: XCTestCase {
         let second = root.appendingPathComponent("SECOND", isDirectory: true)
         try FileManager.default.createDirectory(at: first, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
 
         let destinations = [
             Destination(root: first.path, label: "Primary", isPrimary: true),
@@ -154,7 +178,7 @@ final class OffloadEngineTests: XCTestCase {
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
 
         let (progress, _) = await OffloadEngine(bufferSize: 3).run(
-            files: OffloadEngine.plan(source: source, naming: NamingConfig()),
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
             destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
             algorithm: .xxhash64, onProgress: { _ in })
 
@@ -174,7 +198,7 @@ final class OffloadEngineTests: XCTestCase {
         try existing.write(to: destination.appendingPathComponent("clip.mov"))
 
         let (progress, results) = await OffloadEngine(bufferSize: 2).run(
-            files: OffloadEngine.plan(source: source, naming: NamingConfig()),
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
             destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
             algorithm: .xxhash64,
             onProgress: { _ in })
@@ -193,7 +217,7 @@ final class OffloadEngineTests: XCTestCase {
         let source = try makeCard(in: root, data: Data("resume-me".utf8))
         let destination = root.appendingPathComponent("DEST", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
         let target = Destination(root: destination.path, label: "Destination", isPrimary: true)
         _ = await OffloadEngine(bufferSize: 2).run(
             files: files, destinations: [target], algorithm: .xxhash64, onProgress: { _ in })
@@ -224,7 +248,7 @@ final class OffloadEngineTests: XCTestCase {
         let began = expectation(description: "copy began")
         let signal = OneShot()
         let engine = OffloadEngine(bufferSize: 64 * 1024)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
 
         let run = Task {
             await engine.run(
@@ -256,7 +280,7 @@ final class OffloadEngineTests: XCTestCase {
         let disconnected = root.appendingPathComponent("DEST-DISCONNECTED", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
         let target = Destination(root: destination.path, label: "Field SSD", isPrimary: true)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
         let signal = OneShot()
 
         let (interruptedProgress, interruptedResults) = await OffloadEngine(bufferSize: 64 * 1024).run(
@@ -289,8 +313,8 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertEqual(resumedProgress.phase, .done)
         XCTAssertEqual(resumedProgress.filesVerified, 1)
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("clip.mov")), original)
-        XCTAssertFalse(FileManager.default.fileExists(
-            atPath: destination.appendingPathComponent(".vaultline-ingest-staging").path))
+        let staging = destination.appendingPathComponent(StagingArea.directoryName, isDirectory: true)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: staging.path), [])
         XCTAssertTrue(resumedResults[0].destinations[target.root]?.isVerified == true)
     }
 
@@ -303,7 +327,7 @@ final class OffloadEngineTests: XCTestCase {
         let destination = root.appendingPathComponent("DEST", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
         let target = Destination(root: destination.path, label: "Field SSD", isPrimary: true)
-        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let files = try OffloadEngine.plan(source: source, naming: NamingConfig())
         let signal = OneShot()
 
         let (progress, results) = await OffloadEngine(bufferSize: 64 * 1024).run(
@@ -321,8 +345,8 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertTrue(progress.failures.contains { $0.contains("clip.mov") })
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: destination.appendingPathComponent("clip.mov").path))
-        XCTAssertFalse(FileManager.default.fileExists(
-            atPath: destination.appendingPathComponent(".vaultline-ingest-staging").path))
+        let staging = destination.appendingPathComponent(StagingArea.directoryName, isDirectory: true)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: staging.path), [])
         guard case .failed(let detail) = results[0].destinations[target.root] else {
             return XCTFail("Expected source-change failure")
         }
@@ -338,7 +362,7 @@ final class OffloadEngineTests: XCTestCase {
         try Data("leave-me".utf8).write(to: notADirectory)
 
         let (progress, results) = await OffloadEngine(bufferSize: 2).run(
-            files: OffloadEngine.plan(source: source, naming: NamingConfig()),
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
             destinations: [Destination(root: notADirectory.path, label: "Broken", isPrimary: true)],
             algorithm: .xxhash64,
             onProgress: { _ in })
@@ -352,20 +376,27 @@ final class OffloadEngineTests: XCTestCase {
         }
     }
 
-    func testRestartClearsOnlyReservedStagingAndCompletesTransfer() async throws {
+    func testRestartClearsOnlyMarkerBoundAbandonedStagingAndCompletesTransfer() async throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
         let source = try makeCard(in: root, data: Data("restart-me".utf8))
         let destination = root.appendingPathComponent("DEST", isDirectory: true)
-        let stale = destination
-            .appendingPathComponent(".vaultline-ingest-staging/abandoned/DCIM", isDirectory: true)
+        let staging = destination.appendingPathComponent(StagingArea.directoryName, isDirectory: true)
+        let sessionName = UUID().uuidString.lowercased()
+        let staleSession = staging.appendingPathComponent(sessionName, isDirectory: true)
+        let stale = staleSession.appendingPathComponent("DCIM", isDirectory: true)
         try FileManager.default.createDirectory(at: stale, withIntermediateDirectories: true)
         try Data("partial".utf8).write(to: stale.appendingPathComponent("clip.mov"))
+        try Data(StagingArea.markerContents(sessionName: sessionName).utf8).write(
+            to: staleSession.appendingPathComponent(StagingArea.markerName))
+        XCTAssertTrue(FileManager.default.createFile(
+            atPath: staleSession.appendingPathComponent(StagingArea.lockName).path,
+            contents: Data()))
         let unrelated = destination.appendingPathComponent("keep.txt")
         try Data("keep".utf8).write(to: unrelated)
 
         let (progress, _) = await OffloadEngine(bufferSize: 2).run(
-            files: OffloadEngine.plan(source: source, naming: NamingConfig()),
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
             destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
             algorithm: .xxhash64,
             onProgress: { _ in })
@@ -374,8 +405,88 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("clip.mov")),
                        Data("restart-me".utf8))
         XCTAssertEqual(try Data(contentsOf: unrelated), Data("keep".utf8))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: destination
-            .appendingPathComponent(".vaultline-ingest-staging").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staleSession.path))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: staging.path), [])
+    }
+
+    func testRestartPreservesForeignContentsInsideReservedStagingDirectory() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeCard(in: root, data: Data("copy-me".utf8))
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        let foreign = destination.appendingPathComponent(
+            "\(StagingArea.directoryName)/foreign/DCIM/clip.mov")
+        try FileManager.default.createDirectory(
+            at: foreign.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("belongs-to-someone-else".utf8).write(to: foreign)
+
+        let (progress, _) = await OffloadEngine(bufferSize: 2).run(
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
+            destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
+            algorithm: .xxhash64,
+            onProgress: { _ in })
+
+        XCTAssertEqual(progress.phase, .done)
+        XCTAssertEqual(try Data(contentsOf: foreign), Data("belongs-to-someone-else".utf8))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("clip.mov")),
+                       Data("copy-me".utf8))
+    }
+
+    func testRestartPreservesAnotherActiveVaultlineStagingSession() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeCard(in: root, data: Data("copy-me".utf8))
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        let staging = destination.appendingPathComponent(StagingArea.directoryName, isDirectory: true)
+        let sessionName = UUID().uuidString.lowercased()
+        let active = staging.appendingPathComponent(sessionName, isDirectory: true)
+        try FileManager.default.createDirectory(at: active, withIntermediateDirectories: true)
+        try Data(StagingArea.markerContents(sessionName: sessionName).utf8).write(
+            to: active.appendingPathComponent(StagingArea.markerName))
+        let lockURL = active.appendingPathComponent(StagingArea.lockName)
+        XCTAssertTrue(FileManager.default.createFile(atPath: lockURL.path, contents: Data()))
+        let descriptor = Darwin.open(lockURL.path, O_RDWR | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        XCTAssertEqual(flock(descriptor, LOCK_EX | LOCK_NB), 0)
+        defer { _ = Darwin.close(descriptor) }
+
+        let (progress, _) = await OffloadEngine(bufferSize: 2).run(
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
+            destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
+            algorithm: .xxhash64,
+            onProgress: { _ in })
+
+        XCTAssertEqual(progress.phase, .done)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: active.path))
+        XCTAssertEqual(try Data(contentsOf: destination.appendingPathComponent("clip.mov")),
+                       Data("copy-me".utf8))
+    }
+
+    func testReservedStagingSymlinkFailsWithoutWritingOutsideDestination() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let source = try makeCard(in: root, data: Data("copy-me".utf8))
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        let outside = root.appendingPathComponent("OUTSIDE", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try Data("keep".utf8).write(to: outside.appendingPathComponent("keep.txt"))
+        try FileManager.default.createSymbolicLink(
+            at: destination.appendingPathComponent(StagingArea.directoryName),
+            withDestinationURL: outside)
+
+        let (progress, _) = await OffloadEngine(bufferSize: 2).run(
+            files: try OffloadEngine.plan(source: source, naming: NamingConfig()),
+            destinations: [Destination(root: destination.path, label: "Destination", isPrimary: true)],
+            algorithm: .xxhash64,
+            onProgress: { _ in })
+
+        XCTAssertEqual(progress.phase, .failed)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destination.appendingPathComponent("clip.mov").path))
+        XCTAssertEqual(try Data(contentsOf: outside.appendingPathComponent("keep.txt")),
+                       Data("keep".utf8))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: outside.path), ["keep.txt"])
     }
 
     func testManifestUsesDestinationPathSelectedAlgorithmAndResumedHash() throws {

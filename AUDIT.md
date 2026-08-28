@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 45 of 45 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 49 of 49 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -23,7 +23,8 @@ update checker, or network client. The app sandbox has no network client or serv
 - matching-file restart without rewrite;
 - different-file conflict without overwrite;
 - cooperative cancellation with no partial final file;
-- abandoned staging cleanup on restart;
+- marker-bound abandoned staging cleanup on restart while preserving foreign contents and another
+  running Vaultline Ingest instance's locked staging session;
 - unavailable destination failure without source mutation;
 - destination disappearance during a staged copy with no partial final file, followed by a safe
   reconnect/retry that verifies the original source bytes and removes staging debris;
@@ -46,23 +47,24 @@ update checker, or network client. The app sandbox has no network client or serv
 - change detection across every persisted naming property used to invalidate and rebuild an active
   source plan after a team-configuration import or naming edit; and
 - natural singular and plural result grammar for one-file and multi-file completed runs; and
-- cancellable source discovery with no partial-plan publication, while the packaged app performs
-  the filesystem walk and deterministic sort outside the UI actor.
+- cancellable, fail-closed source discovery with no partial-plan publication, including a visible
+  blocking error when any source subtree cannot be read, while the packaged app performs the
+  filesystem walk and deterministic sort outside the UI actor.
 
 ## Build evidence
 
-The 0.3.0 build 16 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 17 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 16.app`
+`app/build/export/VaultlineIngest.app`
 
 Review DMG SHA-256:
 
-`5e5b8a4e346907b4cac075528888eac9896bcd09969a54b6d983d9ff69a525ab`
+`3eff7ad0242e72e2d7ca44fd833d6fb50c89b0faef6ef8298dc170905b64ab44`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -157,6 +159,18 @@ destination. Form-field reorder and removal controls are persistent and accessib
 These paths pass focused regressions, the full native suite, Release static analysis, and the exact
 package checks above; no new visible UI-exercise claim is made for them.
 
+## Build 17 independent-review corrections
+
+An independent exact-commit review rejected build 16 before release. Build 17 closes all three
+findings: restart cleanup now requires an exact app-ownership marker and a successfully acquired
+session lock, source discovery fails closed instead of silently omitting an unreadable subtree, and
+the release pipeline submits the byte-final rebuilt DMG for notarization before stapling it. New
+regressions prove marker-bound abandoned cleanup, preservation of foreign staging contents,
+preservation of a concurrent active app session, rejection of a reserved staging symlink, and
+blocking behavior for an unreadable source subtree. The complete 49-test suite, static analysis,
+shell syntax check, and universal review packaging pass. A fresh independent review of the exact
+build 17 commit is still required before signing or publication.
+
 ## Physical external-destination exercise
 
 The exact build 16 transfer engine copied a disposable 64 MB source file to the attached 2 TB
@@ -175,6 +189,7 @@ than inventing one, writes destination-relative paths, and never replaces an exi
 
 ## Remaining release boundaries
 
-Before public distribution: independent exact-diff review, a physical camera-card exercise including
-a real destination-cable disconnect/reconnect, Developer ID signing, notarization/stapling, public
-hosting, and a real team's configuration. Those are not claims made by this receipt.
+Before public distribution: independent exact-commit review, Developer ID signing,
+notarization/stapling, and public hosting. A physical camera-card exercise, a real destination-cable
+disconnect/reconnect, and a real team's configuration remain explicitly deferred and are not claims
+made by this receipt.

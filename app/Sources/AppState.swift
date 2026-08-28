@@ -75,6 +75,7 @@ final class AppState: ObservableObject {
     @Published var progress = OffloadProgress()
     @Published var results: [IngestFile] = []
     @Published private(set) var isPlanningSource = false
+    @Published private(set) var sourcePlanningFailure: String?
     @Published var isRunning = false
     @Published var message: String?
 
@@ -104,6 +105,7 @@ final class AppState: ObservableObject {
         if isRunning { return nil }
         if sourceURL == nil { return "Choose a card or folder to ingest." }
         if isPlanningSource { return "Scanning the source…" }
+        if let sourcePlanningFailure { return sourcePlanningFailure }
         if plan.isEmpty { return "Nothing to ingest in that folder." }
         if destinations.isEmpty { return "Add at least one destination." }
         if let f = missingRequired.first {
@@ -174,6 +176,7 @@ final class AppState: ObservableObject {
 
         isPlanningSource = true
         plan = []
+        sourcePlanningFailure = nil
         message = nil
 
         sourcePlanningTask = Task { [weak self] in
@@ -185,9 +188,18 @@ final class AppState: ObservableObject {
 
             self.isPlanningSource = false
             self.sourcePlanningTask = nil
-            guard let planned else { return }
-            self.plan = planned
-            self.message = planned.isEmpty ? "Nothing to ingest in that folder." : nil
+            switch planned {
+            case .cancelled:
+                return
+            case .failed(let failure):
+                self.plan = []
+                self.sourcePlanningFailure = failure.operatorMessage
+                self.message = failure.operatorMessage
+            case .planned(let files):
+                self.plan = files
+                self.sourcePlanningFailure = nil
+                self.message = files.isEmpty ? "Nothing to ingest in that folder." : nil
+            }
         }
     }
 
@@ -216,6 +228,7 @@ final class AppState: ObservableObject {
         cancelSourcePlan()
         sourceURL = nil
         plan = []
+        sourcePlanningFailure = nil
         results = []
         progress = OffloadProgress()
         message = nil

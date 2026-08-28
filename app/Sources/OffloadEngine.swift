@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 // MARK: - Model
 
@@ -217,6 +218,161 @@ enum OffloadError: LocalizedError {
     }
 }
 
+struct SourceDiscoveryFailure: Error, Equatable {
+    let relativePath: String
+    let detail: String
+
+    var operatorMessage: String {
+        let item = relativePath.isEmpty ? "the source folder" : relativePath
+        return "The source scan couldn't read every item. Nothing can be ingested until access to \(item) is fixed or a different source is chosen."
+    }
+}
+
+enum SourcePlanningResult {
+    case planned([IngestFile])
+    case cancelled
+    case failed(SourceDiscoveryFailure)
+}
+
+/// Owns only Vaultline-created transfer scratch space. A recognizable marker
+/// proves provenance; an advisory lock distinguishes an abandoned session from
+/// another running app instance. Foreign or active contents are never removed.
+enum StagingArea {
+    static let directoryName = ".vaultline-ingest-staging"
+    static let markerName = ".vaultline-owned-v1"
+    static let lockName = ".vaultline-session.lock"
+
+    final class Session {
+        let root: URL
+        private let lockDescriptor: Int32
+        private var cleaned = false
+
+        init(root: URL, lockDescriptor: Int32) {
+            self.root = root
+            self.lockDescriptor = lockDescriptor
+        }
+
+        func cleanup() {
+            guard !cleaned else { return }
+            cleaned = true
+            // This session directory was atomically named by this process and
+            // its lock is still held. It is the only recursive delete the copy
+            // engine performs.
+            try? FileManager.default.removeItem(at: root)
+            _ = Darwin.close(lockDescriptor)
+        }
+
+        deinit {
+            if !cleaned { _ = Darwin.close(lockDescriptor) }
+        }
+    }
+
+    static func cleanupAbandoned(destinationRoot: URL) throws {
+        let stagingRoot = destinationRoot.appendingPathComponent(directoryName, isDirectory: true)
+        guard FileManager.default.fileExists(atPath: stagingRoot.path) else { return }
+        try requireRealDirectory(stagingRoot, label: "the reserved staging path")
+
+        let children = try FileManager.default.contentsOfDirectory(
+            at: stagingRoot,
+            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            options: [])
+        for child in children {
+            guard UUID(uuidString: child.lastPathComponent) != nil,
+                  isRealDirectory(child),
+                  owns(child) else { continue }
+
+            let lockURL = child.appendingPathComponent(lockName)
+            guard isRegularFileWithoutFollowingLink(lockURL) else { continue }
+            let descriptor = Darwin.open(lockURL.path, O_RDWR | O_CLOEXEC)
+            guard descriptor >= 0 else { continue }
+            defer { _ = Darwin.close(descriptor) }
+
+            // A live process holds LOCK_EX. A crash releases it, at which point
+            // this exact marker-bound session is safe to reclaim.
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else { continue }
+            try FileManager.default.removeItem(at: child)
+        }
+    }
+
+    static func begin(destinationRoot: URL, sessionID: UUID) throws -> Session {
+        let stagingRoot = destinationRoot.appendingPathComponent(directoryName, isDirectory: true)
+        if FileManager.default.fileExists(atPath: stagingRoot.path) {
+            try requireRealDirectory(stagingRoot, label: "the reserved staging path")
+        } else {
+            try FileManager.default.createDirectory(at: stagingRoot, withIntermediateDirectories: false)
+            try requireRealDirectory(stagingRoot, label: "the reserved staging path")
+        }
+
+        let sessionRoot = stagingRoot.appendingPathComponent(
+            sessionID.uuidString.lowercased(), isDirectory: true)
+        guard DestinationPathSafety.contains(sessionRoot, under: destinationRoot) else {
+            throw OffloadError.destinationUnwritable(stagingRoot.path)
+        }
+        try FileManager.default.createDirectory(at: sessionRoot, withIntermediateDirectories: false)
+
+        do {
+            let lockURL = sessionRoot.appendingPathComponent(lockName)
+            let descriptor = Darwin.open(
+                lockURL.path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC,
+                S_IRUSR | S_IWUSR)
+            guard descriptor >= 0 else {
+                throw OffloadError.destinationUnwritable(lockURL.path)
+            }
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                _ = Darwin.close(descriptor)
+                throw OffloadError.destinationUnwritable(lockURL.path)
+            }
+            // Publish the ownership marker only after the session lock is held.
+            // Cleanup can therefore never observe an owned-but-not-yet-locked
+            // session and mistake a concurrent startup for abandoned work.
+            let marker = markerContents(sessionName: sessionRoot.lastPathComponent)
+            guard FileManager.default.createFile(
+                atPath: sessionRoot.appendingPathComponent(markerName).path,
+                contents: Data(marker.utf8)) else {
+                _ = Darwin.close(descriptor)
+                throw OffloadError.destinationUnwritable(sessionRoot.path)
+            }
+            return Session(root: sessionRoot, lockDescriptor: descriptor)
+        } catch {
+            try? FileManager.default.removeItem(at: sessionRoot)
+            throw error
+        }
+    }
+
+    static func markerContents(sessionName: String) -> String {
+        "vaultline-ingest-staging-v1\n\(sessionName)\n"
+    }
+
+    private static func owns(_ sessionRoot: URL) -> Bool {
+        let marker = sessionRoot.appendingPathComponent(markerName)
+        guard isRegularFileWithoutFollowingLink(marker),
+              let data = try? Data(contentsOf: marker),
+              data.count <= 256,
+              let text = String(data: data, encoding: .utf8) else { return false }
+        return text == markerContents(sessionName: sessionRoot.lastPathComponent)
+    }
+
+    private static func isRealDirectory(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else {
+            return false
+        }
+        return values.isDirectory == true && values.isSymbolicLink != true
+    }
+
+    private static func isRegularFileWithoutFollowingLink(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else {
+            return false
+        }
+        return values.isRegularFile == true && values.isSymbolicLink != true
+    }
+
+    private static func requireRealDirectory(_ url: URL, label: String) throws {
+        guard isRealDirectory(url) else {
+            throw OffloadError.destinationUnwritable("\(label) at \(url.path)")
+        }
+    }
+}
+
 // MARK: - Engine
 
 /// Copies media off a card and proves it arrived intact.
@@ -224,7 +380,8 @@ enum OffloadError: LocalizedError {
 /// The rules in `../spec.md` §3 live here, not in the UI:
 ///
 /// - **Copy, never move.** There is no move path in this file.
-/// - **Never delete.** There is no delete path either.
+/// - **Never delete operator data.** Only marker-bound, lock-proven temporary
+///   transfer sessions created by this app can be reclaimed.
 /// - **Never overwrite.** A destination that already holds *different* content
 ///   is reported as a conflict and left completely alone.
 /// - **Verified means read back and matched**, not "the write returned".
@@ -257,15 +414,12 @@ actor OffloadEngine {
         progress.phase = .copying
         onProgress(progress)
 
-        // A process kill or power loss can strand only app-owned staging data,
-        // never a final media file. Remove that exact reserved directory before
-        // the next attempt so restart is self-healing and does not leak space.
+        // Reclaim only marker-bound, unlocked sessions from an earlier crash.
+        // Foreign contents and another running app instance remain untouched.
         for destination in destinations {
-            let stagingRoot = URL(fileURLWithPath: destination.root, isDirectory: true)
-                .appendingPathComponent(".vaultline-ingest-staging", isDirectory: true)
-            guard FileManager.default.fileExists(atPath: stagingRoot.path) else { continue }
             do {
-                try FileManager.default.removeItem(at: stagingRoot)
+                try StagingArea.cleanupAbandoned(destinationRoot: URL(
+                    fileURLWithPath: destination.root, isDirectory: true))
             } catch {
                 let detail = "Couldn't clear an incomplete prior transfer at \(destination.label): \(error.localizedDescription)"
                 progress.failures.append(detail)
@@ -408,7 +562,6 @@ actor OffloadEngine {
         let destination: Destination
         let finalURL: URL
         let stagingURL: URL
-        let sessionRoot: URL
         let handle: FileHandle
     }
 
@@ -427,28 +580,23 @@ actor OffloadEngine {
         defer { try? input.close() }
         let sourceAttributes = try? FileManager.default.attributesOfItem(atPath: file.sourcePath)
 
-        let sessionID = UUID().uuidString
+        let sessionID = UUID()
         var staged: [StagedDestination] = []
-        var sessionRoots = Set<URL>()
+        var sessions: [StagingArea.Session] = []
         defer {
             for item in staged { try? item.handle.close() }
-            for root in sessionRoots {
-                try? FileManager.default.removeItem(at: root)
-                let stagingRoot = root.deletingLastPathComponent()
-                if (try? FileManager.default.contentsOfDirectory(atPath: stagingRoot.path).isEmpty) == true {
-                    try? FileManager.default.removeItem(at: stagingRoot)
-                }
-            }
+            for session in sessions { session.cleanup() }
         }
 
         // Open every staging file before reading the source, so an unavailable
         // destination fails without touching any final media path.
         for d in destinations {
             let finalURL = URL(fileURLWithPath: destinationPath(for: file, in: d))
-            let sessionRoot = URL(fileURLWithPath: d.root, isDirectory: true)
-                .appendingPathComponent(".vaultline-ingest-staging", isDirectory: true)
-                .appendingPathComponent(sessionID, isDirectory: true)
-            let stagingURL = sessionRoot.appendingPathComponent(
+            let session = try StagingArea.begin(
+                destinationRoot: URL(fileURLWithPath: d.root, isDirectory: true),
+                sessionID: sessionID)
+            sessions.append(session)
+            let stagingURL = session.root.appendingPathComponent(
                 file.destinationRelativePath, isDirectory: false)
             try FileManager.default.createDirectory(
                 at: stagingURL.deletingLastPathComponent(),
@@ -457,10 +605,9 @@ actor OffloadEngine {
                   let handle = FileHandle(forWritingAtPath: stagingURL.path) else {
                 throw OffloadError.destinationUnwritable(finalURL.path)
             }
-            sessionRoots.insert(sessionRoot)
             staged.append(StagedDestination(
                 destination: d, finalURL: finalURL, stagingURL: stagingURL,
-                sessionRoot: sessionRoot, handle: handle))
+                handle: handle))
         }
 
         var hasher = StreamingHasher(algorithm)
@@ -583,8 +730,12 @@ actor OffloadEngine {
     /// Naming is resolved here, once, up front — so the UI can show people
     /// exactly what their files will be called *before* anything is written.
     /// Discovering a rename after the fact is how people lose track of footage.
-    nonisolated static func plan(source: URL, naming: NamingConfig) -> [IngestFile] {
-        planCancellable(source: source, naming: naming, shouldContinue: { true }) ?? []
+    nonisolated static func plan(source: URL, naming: NamingConfig) throws -> [IngestFile] {
+        switch planCancellable(source: source, naming: naming, shouldContinue: { true }) {
+        case .planned(let files): return files
+        case .cancelled: throw CancellationError()
+        case .failed(let failure): throw failure
+        }
     }
 
     /// The same deterministic planner with a cooperative cancellation seam.
@@ -595,46 +746,72 @@ actor OffloadEngine {
         source: URL,
         naming: NamingConfig,
         shouldContinue: () -> Bool
-    ) -> [IngestFile]? {
+    ) -> SourcePlanningResult {
         let skippedFiles: Set<String> = [".ds_store", "thumbs.db"]
         let skippedDirectories: Set<String> = [
             ".spotlight-v100", ".fseventsd", ".trashes", ".temporaryitems"
         ]
-        // `enumerator(at:)` may canonicalize `/var` to `/private/var` while
-        // walking hidden files. Ask FileManager for relative names directly so
-        // a path alias can never turn into an accidental absolute output path.
-        let root = source.standardizedFileURL
+        // Resolve the selected root before walking it because Foundation may
+        // canonicalize `/var` to `/private/var`. Every returned URL is then
+        // proven to remain under that root before it becomes an output path.
+        let root = source.standardizedFileURL.resolvingSymlinksInPath()
         var raw: [(path: String, rel: String, size: Int64)] = []
-
-        guard let e = FileManager.default.enumerator(atPath: root.path) else { return [] }
-
-        for case let relative as String in e {
-            guard shouldContinue() else { return nil }
-            let url = root.appendingPathComponent(relative)
-            guard let v = try? url.resourceValues(
-                forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
-            else { continue }
-            let lowerName = url.lastPathComponent.lowercased()
-            if v.isSymbolicLink == true {
-                e.skipDescendants()
-                continue
+        let keys: [URLResourceKey] = [
+            .isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
+        ]
+        var pendingDirectories = [root]
+        while let directory = pendingDirectories.popLast() {
+            guard shouldContinue() else { return .cancelled }
+            let children: [URL]
+            do {
+                // Unlike FileManager's recursive enumerator, this explicit walk
+                // cannot silently swallow a directory-read error. Hidden camera
+                // metadata is included; only the named OS debris below is skipped.
+                children = try FileManager.default.contentsOfDirectory(
+                    at: directory,
+                    includingPropertiesForKeys: keys,
+                    options: [])
+            } catch {
+                return .failed(failure(for: directory, root: root, error: error))
             }
-            if v.isDirectory == true, skippedDirectories.contains(lowerName) {
-                e.skipDescendants()
-                continue
-            }
-            guard v.isRegularFile == true else { continue }
-            // AppleDouble sidecars are Finder metadata, not camera assets.
-            // macOS creates them as `._*` files on ExFAT/FAT volumes, including
-            // beside otherwise valuable hidden camera metadata.
-            if skippedFiles.contains(lowerName) || lowerName.hasPrefix("._") { continue }
+            for url in children {
+                guard shouldContinue() else { return .cancelled }
+                let relative: String
+                do {
+                    relative = try relativePath(of: url, under: root)
+                } catch let failure as SourceDiscoveryFailure {
+                    return .failed(failure)
+                } catch {
+                    return .failed(SourceDiscoveryFailure(
+                        relativePath: url.lastPathComponent, detail: error.localizedDescription))
+                }
+                let v: URLResourceValues
+                do {
+                    v = try url.resourceValues(forKeys: Set(keys))
+                } catch {
+                    return .failed(failure(for: url, root: root, error: error))
+                }
+                let lowerName = url.lastPathComponent.lowercased()
+                if v.isSymbolicLink == true { continue }
+                if v.isDirectory == true {
+                    if !skippedDirectories.contains(lowerName) {
+                        pendingDirectories.append(url)
+                    }
+                    continue
+                }
+                guard v.isRegularFile == true else { continue }
+                // AppleDouble sidecars are Finder metadata, not camera assets.
+                // macOS creates them as `._*` files on ExFAT/FAT volumes, including
+                // beside otherwise valuable hidden camera metadata.
+                if skippedFiles.contains(lowerName) || lowerName.hasPrefix("._") { continue }
 
-            raw.append((url.path, relative, Int64(v.fileSize ?? 0)))
+                raw.append((url.path, relative, Int64(v.fileSize ?? 0)))
+            }
         }
 
         // Stable order so sequence numbers are reproducible across re-runs —
         // otherwise resuming an interrupted card would rename everything.
-        guard shouldContinue() else { return nil }
+        guard shouldContinue() else { return .cancelled }
         raw.sort { $0.rel < $1.rel }
 
         let renaming = naming.renameOnIngest && !naming.fileTemplate.isEmpty
@@ -645,7 +822,7 @@ actor OffloadEngine {
         var planned: [IngestFile] = []
         planned.reserveCapacity(raw.count)
         for (i, f) in raw.enumerated() {
-            guard shouldContinue() else { return nil }
+            guard shouldContinue() else { return .cancelled }
             let dest = renaming
                 ? NameTemplate.destinationPath(fileTemplate: naming.fileTemplate,
                                                folderTemplate: naming.folderTemplate,
@@ -658,15 +835,33 @@ actor OffloadEngine {
                                       destinationRelativePath: dest,
                                       size: f.size))
         }
-        return planned
+        return .planned(planned)
+    }
+
+    private nonisolated static func relativePath(of url: URL, under root: URL) throws -> String {
+        let path = url.standardizedFileURL.path
+        let prefix = root.path == "/" ? "/" : root.path + "/"
+        guard path.hasPrefix(prefix) else {
+            throw SourceDiscoveryFailure(
+                relativePath: url.lastPathComponent,
+                detail: "The source enumerator returned an item outside the selected source.")
+        }
+        return String(path.dropFirst(prefix.count))
+    }
+
+    private nonisolated static func failure(
+        for url: URL, root: URL, error: Error
+    ) -> SourceDiscoveryFailure {
+        let relative = (try? relativePath(of: url, under: root)) ?? url.lastPathComponent
+        return SourceDiscoveryFailure(relativePath: relative, detail: error.localizedDescription)
     }
 }
 
 /// Runs card discovery outside the UI actor while propagating cancellation to
-/// the detached filesystem walk. `nil` means the scan was deliberately
-/// superseded; an empty array means the selected source contained no media.
+/// the detached filesystem walk. A failed result blocks ingest; a partial plan
+/// is never published as though it represented the complete source.
 enum SourcePlanner {
-    static func plan(source: URL, naming: NamingConfig) async -> [IngestFile]? {
+    static func plan(source: URL, naming: NamingConfig) async -> SourcePlanningResult {
         let worker = Task.detached(priority: .userInitiated) {
             OffloadEngine.planCancellable(
                 source: source,
