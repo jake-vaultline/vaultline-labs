@@ -36,7 +36,8 @@ private struct FieldRow: View {
     let field: IngestFormField
 
     private var isMissing: Bool {
-        field.required && (state.formAnswers[field.id] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        field.required && (state.formAnswers[field.id] ?? field.resolvedDefault())
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -44,8 +45,8 @@ private struct FieldRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 4) {
                     Text(field.label).font(VL.body)
-                    if field.required {
-                        Circle().fill(isMissing ? VL.amber : VL.steel.opacity(0.5))
+                    if field.required || state.isInvalid(field) {
+                        Circle().fill(isMissing || state.isInvalid(field) ? VL.amber : VL.steel.opacity(0.5))
                             .frame(width: 4, height: 4)
                     }
                 }
@@ -56,6 +57,9 @@ private struct FieldRow: View {
             .frame(width: 128, alignment: .leading)
 
             control
+            if state.isInvalid(field), field.kind == .date {
+                Text("Use YYYY-MM-DD").font(.system(size: 9.5)).foregroundStyle(VL.amber)
+            }
         }
     }
 

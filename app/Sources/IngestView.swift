@@ -13,48 +13,37 @@ struct IngestView: View {
             TitleBar(showWizard: $showWizard)
             Divider().overlay(VL.rule)
 
-            Group {
-                if state.section == .drives {
-                    DrivesView()
-                } else if state.sourceURL == nil {
-                    DropZone(isTargeted: isTargeted,
-                             choose: { state.chooseSource() },
-                             newJob: { showJob = true })
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: VL.Space.xl) {
-                            SourceBlock()
-                            if !state.renamePreview.isEmpty { RenameBlock() }
-                            if state.config.form.enabled && !state.config.form.fields.isEmpty {
-                                ShootForm()
-                            }
-                            DestinationBlock(newJob: { showJob = true })
-                            if state.progress.phase != .planning { RunBlock() }
-                            if state.progress.hasProblems { ProblemBlock() }
-                            if !state.results.isEmpty && !state.isRunning { ResultsBlock() }
+            if state.sourceURL == nil {
+                DropZone(isTargeted: isTargeted,
+                         choose: { state.chooseSource() },
+                         newJob: { showJob = true })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: VL.Space.xl) {
+                        SourceBlock()
+                        if !state.renamePreview.isEmpty { RenameBlock() }
+                        if state.config.form.enabled && !state.config.form.fields.isEmpty {
+                            ShootForm()
                         }
-                        .padding(VL.Space.l)
+                        DestinationBlock(newJob: { showJob = true })
+                        if state.progress.phase != .planning { RunBlock() }
+                        if state.progress.hasProblems { ProblemBlock() }
+                        if !state.results.isEmpty && !state.isRunning { ResultsBlock() }
                     }
+                    .padding(VL.Space.l)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if state.section == .ingest {
-                Divider().overlay(VL.rule)
-                ActionBar()
-            }
+            Divider().overlay(VL.rule)
+            ActionBar()
         }
         .vlWindowBackground()
         .foregroundStyle(VL.ink)
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { handleDrop($0) }
         .sheet(isPresented: $showWizard) { SetupWizard().environmentObject(state) }
         .sheet(isPresented: $showJob) { JobSheet().environmentObject(state) }
-        .sheet(item: $state.passportPrompt) { prompt in
-            PassportPairingSheet(prompt: prompt).environmentObject(state)
-        }
-        .sheet(item: $state.driveIdentityPrompt) { prompt in
-            DriveIdentityReviewSheet(prompt: prompt).environmentObject(state)
-        }
     }
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
@@ -75,7 +64,6 @@ struct IngestView: View {
 /// Custom chrome: the window has no system title bar, so this is it. Keeps the
 /// dark surface unbroken from edge to edge.
 private struct TitleBar: View {
-    @EnvironmentObject private var state: AppState
     @Binding var showWizard: Bool
 
     var body: some View {
@@ -89,24 +77,6 @@ private struct TitleBar: View {
                 .resizable().scaledToFit()
                 .frame(height: 17)
 
-            // Two halves of one job: knowing what drives you have, and moving
-            // media onto them safely.
-            HStack(spacing: 2) {
-                ForEach(AppState.Section.allCases) { s in
-                    Button(s.title) { state.section = s }
-                        .buttonStyle(SegmentButton(active: state.section == s))
-                }
-            }
-            .padding(2)
-            .background(VL.slate, in: RoundedRectangle(cornerRadius: VL.Radius.small + 2))
-
-            if state.config.passport?.isConnected == true {
-                VLChip(text: state.passports.pendingUploads > 0
-                       ? "PASSPORTS · \(state.passports.pendingUploads) PENDING"
-                       : "PASSPORTS", tint: state.passports.pendingUploads > 0 ? VL.amber : VL.blue)
-                    .help("Drive Passport metadata sync is connected")
-            }
-
             Spacer()
 
             Button("Naming Setup") { showWizard = true }
@@ -116,161 +86,6 @@ private struct TitleBar: View {
         .padding(.horizontal, VL.Space.m)
         .frame(height: 46)
         .background(VL.charcoal)
-    }
-}
-
-private struct PassportPairingSheet: View {
-    @EnvironmentObject private var state: AppState
-    let prompt: AppState.PassportPrompt
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: VL.Space.m) {
-            Text("Attach a Drive Tag").font(VL.display(18))
-            Text("\(prompt.volumeName)'s latest snapshot is ready. Tap or scan an unpaired Drive Tag, sign in, and enter this code:")
-                .font(VL.body).foregroundStyle(VL.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Panel {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(prompt.code)
-                        .font(.system(size: 30, weight: .semibold, design: .monospaced))
-                        .tracking(5).foregroundStyle(VL.blue)
-                    Text("One use · expires in five minutes")
-                        .font(VL.small).foregroundStyle(VL.inkFaint)
-                }
-            }
-
-            Text("The physical tag keeps its static URL forever. Reassignment happens safely on the server; the tag itself contains no drive name, serial, workspace ID, or secret.")
-                .font(VL.small).foregroundStyle(VL.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack {
-                Button("Open Workspace") {
-                    if let url = URL(string: prompt.serviceURL) { NSWorkspace.shared.open(url) }
-                }
-                .buttonStyle(VLButton())
-                Spacer()
-                Button("Done") { state.passportPrompt = nil }
-                    .buttonStyle(VLPrimaryButton())
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(VL.Space.l)
-        .frame(width: 490)
-        .vlWindowBackground()
-        .foregroundStyle(VL.ink)
-    }
-}
-
-private struct DriveIdentityReviewSheet: View {
-    @EnvironmentObject private var state: AppState
-    let prompt: AppState.DriveIdentityPrompt
-    @State private var resolving = false
-
-    private var review: DrivePassportClient.DriveIdentityReview { prompt.review }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: VL.Space.m) {
-            Text(review.resolvable ? "Is this a drive you already enrolled?" : "Drive identity needs review")
-                .font(VL.display(18))
-            Text(introduction)
-                .font(VL.body).foregroundStyle(VL.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if review.candidates.isEmpty {
-                Panel {
-                    Text("No safe candidate details were returned. Nothing was merged or created.")
-                        .font(VL.small).foregroundStyle(VL.inkDim)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: VL.Space.s) {
-                    ForEach(review.candidates) { candidate in
-                        Panel {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(candidate.displayName).font(VL.bodyMed)
-                                Text("Matched on \(signalLabels(candidate.matchedIdentifiers))")
-                                    .font(VL.small).foregroundStyle(VL.inkFaint)
-                                if review.resolvable {
-                                    Button("Same physical drive — use this passport") {
-                                        resolve(.bindExisting(candidate.driveID))
-                                    }
-                                    .buttonStyle(VLButton())
-                                    .disabled(resolving)
-                                    .padding(.top, 4)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-            }
-
-            if review.resolvable {
-                Text("Choose a prior passport only if this is the same physical drive after a rename, reformat, or enclosure change. Choosing new keeps both records separate.")
-                    .font(VL.small).foregroundStyle(VL.inkDim)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack {
-                if !review.resolvable,
-                   let serviceURL = state.config.passport?.url,
-                   let url = URL(string: serviceURL) {
-                    Button("Open Workspace") { NSWorkspace.shared.open(url) }
-                        .buttonStyle(VLButton())
-                }
-                Spacer()
-                Button("Cancel") { state.driveIdentityPrompt = nil }
-                    .buttonStyle(VLQuietButton())
-                    .disabled(resolving)
-                if review.resolvable {
-                    Button("Create a new Drive Passport") { resolve(.createNew) }
-                        .buttonStyle(VLPrimaryButton())
-                        .disabled(resolving)
-                }
-            }
-        }
-        .padding(VL.Space.l)
-        .frame(width: 540)
-        .vlWindowBackground()
-        .foregroundStyle(VL.ink)
-    }
-
-    private var introduction: String {
-        if review.resolvable {
-            return "\(review.volumeName) shares weaker identity signals with the drive records below. Vaultline has paused before uploading or attaching a tag."
-        }
-        return "\(review.volumeName) matches more than one enrolled drive on strong identifiers. Vaultline blocked the merge. Review the drive records in the workspace before trying again."
-    }
-
-    private func resolve(_ resolution: DrivePassportClient.IdentityResolution) {
-        resolving = true
-        Task { await state.resolveDriveIdentity(prompt, resolution: resolution) }
-    }
-
-    private func signalLabels(_ signals: [String]) -> String {
-        signals.map {
-            switch $0 {
-            case "volume_uuid": return "filesystem identity"
-            case "hardware_serial": return "hardware serial"
-            case "capacity": return "capacity"
-            case "vendor_model": return "vendor/model"
-            case "topology": return "disk topology"
-            default: return $0.replacingOccurrences(of: "_", with: " ")
-            }
-        }.joined(separator: ", ")
-    }
-}
-
-private struct SegmentButton: ButtonStyle {
-    let active: Bool
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: active ? .semibold : .regular))
-            .foregroundStyle(active ? VL.charcoal : VL.inkDim)
-            .padding(.horizontal, 12).padding(.vertical, 4)
-            .background(active ? VL.softWhite : .clear,
-                        in: RoundedRectangle(cornerRadius: VL.Radius.small))
-            .contentShape(Rectangle())
     }
 }
 

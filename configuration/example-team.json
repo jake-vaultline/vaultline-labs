@@ -33,5 +33,5 @@
       }
     ]
   },
-  "workflow" : { "createStructure" : true, "manifest" : true, "onCollision" : "report", "verify" : true }
+  "workflow" : { "manifest" : true }
 }

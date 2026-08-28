@@ -14,14 +14,15 @@ task branch includes:
   configured media landing folder;
 - safe copying of an actual team-supplied Premiere template under a derived name, with no invented
   project files and no overwrite;
-- the existing copy/never-move, never-delete, never-overwrite, read-back checksum, MHL, sidecar,
-  partial-result, and cancellation behavior;
+- copy/never-move, never-delete, never-overwrite, staged writes, read-back checksum, MHL, sidecar,
+  safe restart, interruption cleanup, and explicit partial-result behavior;
 - a reusable example configuration and customization/QA runbook; and
 - focused tests for defaults, package round trips, token rendering, validation, structure creation,
   template creation/collision behavior, and plan-to-output.
 
-This is standalone Labs software. It opens directly into Ingest, and the active journey has no
-Media Nexus/Relay dependency or compiled Relay client.
+This is standalone Labs software. It opens directly into Ingest. The app binary contains no Drives
+registry, Drive Passport, Media Nexus, Relay, account, telemetry, update checker, or network client,
+and its sandbox has no network entitlement. Those are separate product surfaces.
 
 ## Prior release candidate
 
@@ -34,21 +35,23 @@ not be presented as the finished lead magnet. Nothing is publicly downloadable y
 
 ## Verification and release boundary
 
-The 0.3.0 source passes a clean native test run (19 passed, 2 opt-in real-drive tests skipped) and an
-unsigned Release configuration build. VLP-415 still requires independent diff review and hands-on
-product exercise before it is a release candidate. Developer ID signing, notarization, public
-download hosting, website funnel, campaign activation, production/client deployment, and a real
-team's configuration are separate approval-boundary work.
+The 0.3.0 source passes 27 of 27 native tests. Its universal Intel/Apple Silicon Release review
+build passes strict local signature verification, is sandboxed, and has no network entitlement. A
+visible synthetic-card exercise completed the brief, exact job preview, folder creation, copy,
+read-back verification, ASC MHL, ingest record, no-rewrite rerun, and visible conflict journeys.
+Independent SHA-256 checks matched the source and clean destination copies; the generated MHL files
+validated against the official ASC reference XSD. See [AUDIT.md](AUDIT.md) for the durable receipt.
 
-## Hands-on checks still required before public release
+VLP-415 still requires independent exact-diff review before acceptance. Clean-Mac and physical-card
+qualification, Developer ID signing, notarization, public download hosting, website funnel,
+campaign activation, production/client deployment, and a real team's configuration are separate
+release-boundary work.
 
-- Exercise source-card selection, required form values, configured job preview, destination
-  selection, folder creation, project-template behavior, copy, verification, MHL, and sidecar in the
-  real app UI.
-- Run synthetic card cases for name clashes, unplug/interruption, read-only destinations, multiple
-  destinations, and re-ingest/resume.
-- Verify the checksum implementation against an independent tool.
-- Decide whether Drive Passports and the resident Drives view belong in the first public release.
+## Checks still required before public release
+
+- Qualify the accepted review build on a clean Mac with a physical camera card and external
+  destination, including a real disconnect/reconnect.
+- Independently review the exact implementation commit.
 - Review the exact public positioning, version, and download experience.
 
 See [spec.md](spec.md) for product authority and [CONFIGURATION.md](CONFIGURATION.md) for the

@@ -1,7 +1,8 @@
 import Foundation
 
 /// The bounded customization surface Vaultline configures for a media team.
-/// One app binary reads this data; client workflows never require source forks.
+/// One app binary reads this data; client workflows never require source forks,
+/// account state, or a network connection.
 struct TeamConfiguration: Codable, Equatable {
     var schemaVersion = 1
     var teamName = "Your team"
@@ -164,6 +165,14 @@ enum WorkflowPath {
             throw TeamConfigurationError.invalidPath("\(context): \(path)")
         }
     }
+
+    static func validateFilename(_ name: String, context: String) throws {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed == (trimmed as NSString).lastPathComponent,
+              trimmed != ".", trimmed != "..", !trimmed.contains("\\"), !trimmed.contains(":") else {
+            throw TeamConfigurationError.invalidPath("\(context): \(name)")
+        }
+    }
 }
 
 enum WorkflowTemplate {
@@ -313,7 +322,7 @@ enum ConfiguredJobBuilder {
 }
 
 /// Portable, credential-free configuration exchanged between Vaultline and a
-/// team. It deliberately excludes account, Passport, and Media Nexus state.
+/// team. It deliberately excludes account and network state.
 struct TeamConfigurationPackage: Codable {
     var schemaVersion = 1
     var team: TeamConfiguration
@@ -328,7 +337,24 @@ struct TeamConfigurationPackage: Codable {
         }
         let validatedTeam = try team.validated()
         var tokens = Set<String>()
+        var fieldIDs = Set<UUID>()
         for field in form.fields {
+            guard fieldIDs.insert(field.id).inserted else {
+                throw TeamConfigurationError.invalidWorkflow("More than one form field uses id \(field.id.uuidString).")
+            }
+            guard !field.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw TeamConfigurationError.invalidWorkflow("A form field is missing its label.")
+            }
+            if field.kind == .choice {
+                let choices = field.options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                guard choices == field.options, !choices.isEmpty, !choices.contains(""),
+                      Set(choices).count == choices.count else {
+                    throw TeamConfigurationError.invalidWorkflow("\(field.label) needs a non-empty list of unique choices.")
+                }
+            }
+            if !field.defaultValue.isEmpty, !field.isValid(answer: field.defaultValue) {
+                throw TeamConfigurationError.invalidWorkflow("\(field.label)'s default value is not valid for its field type.")
+            }
             guard let token = field.token else { continue }
             guard token.range(of: #"^[A-Za-z][A-Za-z0-9]*$"#, options: .regularExpression) != nil,
                   token.lowercased() != "date" else {
@@ -345,7 +371,14 @@ struct TeamConfigurationPackage: Codable {
                 where token.lowercased() != "date" && !tokens.contains(token) {
                     throw TeamConfigurationError.invalidWorkflow("\(preset.name) references form token \(token), but no form field provides it.")
                 }
+                if !form.enabled,
+                   try WorkflowTemplate.referencedTokens(in: template).contains(where: { $0.lowercased() != "date" }) {
+                    throw TeamConfigurationError.invalidWorkflow("\(preset.name) needs form values, so the ingest form cannot be disabled.")
+                }
             }
+        }
+        if form.writeSidecar {
+            try WorkflowPath.validateFilename(form.sidecarName, context: "ingest record filename")
         }
         var result = self
         result.team = validatedTeam

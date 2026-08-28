@@ -43,31 +43,16 @@ Then upload `build/VaultlineIngest-<version>.dmg` and `install.sh` alongside
 Ingest's release checks are the inverse of Inspector's, and they exist because this app
 has a much wider blast radius.
 
-**Entitlement contract.** The build fails if the sandbox is off, if
-`network.server` appears (this app is a client, never a listener), if any broad
-filesystem entitlement appears, or if user-selected read-write is missing.
+**Entitlement contract.** The build fails if the sandbox is off, if either
+network entitlement appears, if any broad filesystem entitlement appears, or if
+user-selected read-write is missing.
 
-**Network surface.** The build fails if any file other than the audited optional service
-client (`DrivePassportClient.swift`) creates a `URLSession`. It writes every request to
-Settings → Network. The moment another code path can make a request, that panel stops
-being evidence and becomes decoration.
+**Network surface.** The build fails if any app source creates common URLSession,
+Network.framework, Core Foundation stream, web-view, or shell-process clients. The
+public standalone utility has no account, telemetry, update check, Relay, Media
+Nexus, Drive Passport, or other network client.
 
 Neither guard should ever be bypassed to get a build out.
-
-### Proving physical identity under the release sandbox
-
-Run the diagnostic against a mounted external drive:
-
-```bash
-Diagnostics/verify-identity-sandbox.sh /Volumes/NAME
-```
-
-It compiles the production `VolumeIdentity` collector into a temporary background
-app, signs it with the same hardened-runtime and sandbox entitlements as Ingest,
-reports only whether each signal is present, and removes the temporary app. It never
-prints serials or other identifier values and never reads drive contents.
-
----
 
 ## Installing the standalone utility
 
@@ -87,6 +72,6 @@ Settings → Team Setup; it contains workflow rules and no credentials or server
 - [x] `XXHash64.swift` verified against reference vectors and streamed test cases;
       see `../AUDIT.md`
 - [x] Configuration-driven structure creation and safe real project-template copying
-- [ ] Resume after interruption
+- [x] Safe restart after interruption via verified existing-file resume
 - [x] Standalone journey has no Media Nexus/Relay dependency
-- [ ] Real-card testing — see `../STATUS.md`
+- [ ] Physical-card qualification — see `../STATUS.md`

@@ -23,7 +23,7 @@ struct IngestFile: Identifiable {
 enum DestinationState: Equatable {
     case pending
     /// Already present and byte-identical — a re-run, not a copy.
-    case alreadyVerified
+    case alreadyVerified(hash: String)
     case verified(hash: String)
     /// Something different is already sitting there. Never overwritten.
     case conflict(String)
@@ -52,6 +52,48 @@ struct Destination: Identifiable, Hashable {
     /// identically. A "backup" given less care than the primary would be worse
     /// than no backup.
     let isPrimary: Bool
+}
+
+enum IngestPathSafety {
+    static func issue(source: URL, destinations: [Destination]) -> String? {
+        let sourcePath = normalized(source.path)
+        for destination in destinations {
+            let path = normalized(destination.root)
+            if path == sourcePath || path.hasPrefix(sourcePath + "/") {
+                return "\(destination.label) is inside the source. Choose a destination outside the card or source folder."
+            }
+        }
+        for index in destinations.indices {
+            for otherIndex in destinations.indices where otherIndex > index {
+                let first = normalized(destinations[index].root)
+                let second = normalized(destinations[otherIndex].root)
+                if first == second || first.hasPrefix(second + "/") || second.hasPrefix(first + "/") {
+                    return "\(destinations[index].label) and \(destinations[otherIndex].label) overlap. Choose independent destination folders."
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func normalized(_ path: String) -> String {
+        let resolved = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        return resolved.count > 1 && resolved.hasSuffix("/") ? String(resolved.dropLast()) : resolved
+    }
+}
+
+enum IngestPlanSafety {
+    static func issue(files: [IngestFile]) -> String? {
+        var seen = Set<String>()
+        for file in files {
+            let normalized = file.destinationRelativePath
+                .precomposedStringWithCanonicalMapping
+                .lowercased()
+            guard seen.insert(normalized).inserted else {
+                return "More than one source file would land at \(file.destinationRelativePath). Adjust the rename pattern before starting."
+            }
+        }
+        return nil
+    }
 }
 
 struct OffloadProgress {
@@ -114,7 +156,11 @@ enum OffloadError: LocalizedError {
 /// stale.
 actor OffloadEngine {
 
-    private let bufferSize = 4 * 1024 * 1024
+    private let bufferSize: Int
+
+    init(bufferSize: Int = 4 * 1024 * 1024) {
+        self.bufferSize = max(1, bufferSize)
+    }
 
     func run(files: [IngestFile],
              destinations: [Destination],
@@ -127,11 +173,35 @@ actor OffloadEngine {
         progress.phase = .copying
         onProgress(progress)
 
+        // A process kill or power loss can strand only app-owned staging data,
+        // never a final media file. Remove that exact reserved directory before
+        // the next attempt so restart is self-healing and does not leak space.
+        for destination in destinations {
+            let stagingRoot = URL(fileURLWithPath: destination.root, isDirectory: true)
+                .appendingPathComponent(".vaultline-ingest-staging", isDirectory: true)
+            guard FileManager.default.fileExists(atPath: stagingRoot.path) else { continue }
+            do {
+                try FileManager.default.removeItem(at: stagingRoot)
+            } catch {
+                let detail = "Couldn't clear an incomplete prior transfer at \(destination.label): \(error.localizedDescription)"
+                progress.failures.append(detail)
+                progress.phase = .failed
+                let results = files.map { sourceFile in
+                    var file = sourceFile
+                    file.destinations[destination.root] = .failed(detail)
+                    return file
+                }
+                onProgress(progress)
+                return (progress, results)
+            }
+        }
+
         var results: [IngestFile] = []
 
         for var file in files {
             if Task.isCancelled {
                 progress.phase = .cancelled
+                progress.currentFile = ""
                 onProgress(progress)
                 return (progress, results)
             }
@@ -139,11 +209,11 @@ actor OffloadEngine {
             progress.currentFile = file.originalName
             onProgress(progress)
 
+            var toWrite: [Destination] = []
+            var existing: [Destination] = []
+
             do {
                 // ── Triage each destination before writing anything ────────
-                var toWrite: [Destination] = []
-                var existing: [Destination] = []
-
                 for d in destinations {
                     let path = destinationPath(for: file, in: d)
                     if FileManager.default.fileExists(atPath: path) {
@@ -172,55 +242,65 @@ actor OffloadEngine {
                 }
 
                 // ── One source read: hash it, write the copies that are due ──
-                let sourceHash = try copyFanOut(
+                let copied = try await copyFanOut(
                     file: file, destinations: toWrite, algorithm: algorithm,
                     onBytes: { delta in
                         progress.bytesCopied += delta
                         onProgress(progress)
                     })
+                let sourceHash = copied.sourceHash
                 file.sourceHash = sourceHash
+                for (root, state) in copied.states { file.destinations[root] = state }
 
                 // ── Verify by reading back ────────────────────────────────
                 progress.phase = .verifying
                 onProgress(progress)
 
                 for d in toWrite {
-                    let path = destinationPath(for: file, in: d)
-                    let hash = try hashFile(at: path, algorithm: algorithm)
-                    file.destinations[d.root] = hash == sourceHash
-                        ? .verified(hash: hash)
-                        : .failed("checksum mismatch — the copy does not match the source")
+                    guard file.destinations[d.root] == nil else { continue }
+                    file.destinations[d.root] = .failed("the destination copy was not finalized")
                 }
 
                 // ── Existing files: identical means already done ──────────
                 for d in existing {
                     let path = destinationPath(for: file, in: d)
-                    let hash = try hashFile(at: path, algorithm: algorithm)
+                    let hash = try await hashFile(at: path, algorithm: algorithm)
                     if hash == sourceHash {
-                        file.destinations[d.root] = .alreadyVerified
+                        file.destinations[d.root] = .alreadyVerified(hash: hash)
                         progress.filesAlreadyPresent += 1
                     } else {
                         file.destinations[d.root] = .conflict("a different file of that name is already there")
                     }
                 }
 
-                for (root, st) in file.destinations where st.isProblem {
-                    let label = destinations.first { $0.root == root }?.label ?? root
-                    let line = "\(file.relativePath) → \(label)"
-                    if case .conflict = st { progress.conflicts.append(line) }
-                    else { progress.failures.append(line) }
-                }
-
-                if !file.destinations.isEmpty,
+                if file.destinations.count == destinations.count,
                    file.destinations.values.allSatisfy(\.isVerified) {
                     progress.filesVerified += 1
                 }
                 progress.phase = .copying
 
+            } catch is CancellationError {
+                for d in destinations where file.destinations[d.root] == nil {
+                    file.destinations[d.root] = .skipped("stopped before verification")
+                }
+                results.append(file)
+                progress.phase = .cancelled
+                progress.currentFile = ""
+                onProgress(progress)
+                return (progress, results)
             } catch {
                 // One bad file doesn't abandon the card. Record it, keep going,
                 // and report exactly what didn't make it.
-                progress.failures.append("\(file.relativePath) — \(error.localizedDescription)")
+                for d in destinations where file.destinations[d.root] == nil {
+                    file.destinations[d.root] = .failed(error.localizedDescription)
+                }
+            }
+
+            for (root, state) in file.destinations where state.isProblem {
+                let label = destinations.first { $0.root == root }?.label ?? root
+                let line = "\(file.relativePath) → \(label)"
+                if case .conflict = state { progress.conflicts.append(line) }
+                else { progress.failures.append(line) }
             }
 
             results.append(file)
@@ -235,52 +315,127 @@ actor OffloadEngine {
 
     // MARK: Copy
 
+    private struct FanOutResult {
+        let sourceHash: String
+        let states: [String: DestinationState]
+    }
+
+    private struct StagedDestination {
+        let destination: Destination
+        let finalURL: URL
+        let stagingURL: URL
+        let sessionRoot: URL
+        let handle: FileHandle
+    }
+
+    /// Writes to an app-owned hidden staging area on each destination, then
+    /// reads those bytes back before an atomic same-volume move into the final
+    /// path. Cancellation or a failed destination therefore never leaves a
+    /// partial file at the operator's intended media path.
     private func copyFanOut(file: IngestFile,
                             destinations: [Destination],
                             algorithm: ChecksumAlgorithm,
-                            onBytes: (Int64) -> Void) throws -> String {
+                            onBytes: (Int64) -> Void) async throws -> FanOutResult {
 
         guard let input = FileHandle(forReadingAtPath: file.sourcePath) else {
             throw OffloadError.unreadable(file.sourcePath)
         }
         defer { try? input.close() }
 
-        // Open every destination before writing a byte, so a read-only volume
-        // fails the file before it half-lands somewhere else.
-        var handles: [FileHandle] = []
-        for d in destinations {
-            let path = destinationPath(for: file, in: d)
-            try FileManager.default.createDirectory(
-                atPath: (path as NSString).deletingLastPathComponent,
-                withIntermediateDirectories: true)
-            guard FileManager.default.createFile(atPath: path, contents: nil),
-                  let h = FileHandle(forWritingAtPath: path) else {
-                throw OffloadError.destinationUnwritable(path)
+        let sessionID = UUID().uuidString
+        var staged: [StagedDestination] = []
+        var sessionRoots = Set<URL>()
+        defer {
+            for item in staged { try? item.handle.close() }
+            for root in sessionRoots {
+                try? FileManager.default.removeItem(at: root)
+                let stagingRoot = root.deletingLastPathComponent()
+                if (try? FileManager.default.contentsOfDirectory(atPath: stagingRoot.path).isEmpty) == true {
+                    try? FileManager.default.removeItem(at: stagingRoot)
+                }
             }
-            handles.append(h)
         }
-        defer { for h in handles { try? h.close() } }
+
+        // Open every staging file before reading the source, so an unavailable
+        // destination fails without touching any final media path.
+        for d in destinations {
+            let finalURL = URL(fileURLWithPath: destinationPath(for: file, in: d))
+            let sessionRoot = URL(fileURLWithPath: d.root, isDirectory: true)
+                .appendingPathComponent(".vaultline-ingest-staging", isDirectory: true)
+                .appendingPathComponent(sessionID, isDirectory: true)
+            let stagingURL = sessionRoot.appendingPathComponent(
+                file.destinationRelativePath, isDirectory: false)
+            try FileManager.default.createDirectory(
+                at: stagingURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true)
+            guard FileManager.default.createFile(atPath: stagingURL.path, contents: nil),
+                  let handle = FileHandle(forWritingAtPath: stagingURL.path) else {
+                throw OffloadError.destinationUnwritable(finalURL.path)
+            }
+            sessionRoots.insert(sessionRoot)
+            staged.append(StagedDestination(
+                destination: d, finalURL: finalURL, stagingURL: stagingURL,
+                sessionRoot: sessionRoot, handle: handle))
+        }
 
         var hasher = StreamingHasher(algorithm)
 
         while true {
+            try Task.checkCancellation()
             guard let chunk = try input.read(upToCount: bufferSize), !chunk.isEmpty else { break }
             hasher.update(chunk)
-            for h in handles { try h.write(contentsOf: chunk) }
-            onBytes(Int64(chunk.count))
-            if Task.isCancelled { break }
+            for item in staged { try item.handle.write(contentsOf: chunk) }
+            if !staged.isEmpty { onBytes(Int64(chunk.count)) }
+            await Task.yield()
         }
+        try Task.checkCancellation()
 
         // Force to disk before claiming anything about it. Verifying a file
         // still sitting in the page cache proves nothing about the drive.
-        for h in handles { try h.synchronize() }
+        for item in staged {
+            try item.handle.synchronize()
+            try item.handle.close()
+        }
 
-        return hasher.hexDigest()
+        let sourceHash = hasher.hexDigest()
+        var states: [String: DestinationState] = [:]
+
+        for item in staged {
+            try Task.checkCancellation()
+            let stagedHash = try await hashFile(at: item.stagingURL.path, algorithm: algorithm)
+            guard stagedHash == sourceHash else {
+                states[item.destination.root] = .failed("checksum mismatch in the staged copy")
+                continue
+            }
+
+            if FileManager.default.fileExists(atPath: item.finalURL.path) {
+                let existingHash = try await hashFile(at: item.finalURL.path, algorithm: algorithm)
+                states[item.destination.root] = existingHash == sourceHash
+                    ? .alreadyVerified(hash: existingHash)
+                    : .conflict("a different file of that name appeared during the copy")
+                continue
+            }
+
+            do {
+                try FileManager.default.createDirectory(
+                    at: item.finalURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true)
+                try FileManager.default.moveItem(at: item.stagingURL, to: item.finalURL)
+                let finalHash = try await hashFile(at: item.finalURL.path, algorithm: algorithm)
+                states[item.destination.root] = finalHash == sourceHash
+                    ? .verified(hash: finalHash)
+                    : .failed("checksum mismatch — the final copy does not match the source")
+            } catch {
+                states[item.destination.root] = .failed(error.localizedDescription)
+            }
+        }
+
+        return FanOutResult(sourceHash: sourceHash, states: states)
     }
 
     // MARK: Verify
 
-    private func hashFile(at path: String, algorithm: ChecksumAlgorithm) throws -> String {
+    private func hashFile(at path: String, algorithm: ChecksumAlgorithm) async throws -> String {
         guard let handle = FileHandle(forReadingAtPath: path) else {
             throw OffloadError.unreadable(path)
         }
@@ -288,8 +443,10 @@ actor OffloadEngine {
 
         var hasher = StreamingHasher(algorithm)
         while true {
+            try Task.checkCancellation()
             guard let chunk = try handle.read(upToCount: bufferSize), !chunk.isEmpty else { break }
             hasher.update(chunk)
+            await Task.yield()
         }
         return hasher.hexDigest()
     }

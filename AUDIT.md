@@ -1,83 +1,79 @@
-# Vaultline Ingest — pre-compile audit
+# Vaultline Ingest 0.3.0 — implementation and qualification receipt
 
-2026-08-07. What was checked without a compiler, and what it found.
+Date: 2026-08-27 (America/Los_Angeles)
 
----
+Task: VLP-415
 
-## 1. xxHash64 — VERIFIED CORRECT
+Branch: `codex/vlp-415-labs-ingest`
 
-The highest-risk file in the project, and the one everything else trusts. Now the
-best-tested.
+## Product identity
 
-`XXHash64.swift` was ported line-for-line to Python — including its 32-byte buffering,
-the stripe loop, the tail handling and the avalanche — and run against the reference
-`xxhash` implementation:
+The first public Vaultline Labs Ingest binary is ingest-only. It opens directly into the card
+offload journey and has no Drives registry, Drive Passport, Media Nexus, Relay, account, telemetry,
+update checker, or network client. The app sandbox has no network client or server entitlement.
 
-| | |
-|---|---|
-| Lengths tested | every length 0–200, plus 1 KB, 4 KB, 64 KB, 1 MB, 1 MB + 13 |
-| Modes | one-shot **and** streamed in chunks of 1, 7, 32, 33, 4096, 100003 bytes — the odd-boundary path the offload engine actually uses |
-| Canonical vectors | `""` → `ef46db3751d8e999` · `"a"` → `d24ec4f1a98c6e5b` · `"abc"` → `44bc2cf5ad770999` — all match |
-| **Mismatches** | **0** |
+## Automated evidence
 
-The algorithm and buffering are right. What's left to confirm on a Mac is only that the
-Swift transcription compiles and behaves the same — one `shasum`-style spot check against
-`xxhsum` on a real file is enough.
+`xcodebuild test` passed 27 of 27 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
----
+- portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
+  Premiere-template behavior;
+- configured job structure and media landing;
+- two-destination fan-out and read-back verification;
+- matching-file restart without rewrite;
+- different-file conflict without overwrite;
+- cooperative cancellation with no partial final file;
+- abandoned staging cleanup on restart;
+- unavailable destination failure without source mutation;
+- destination-inside-source, overlapping-destination, and duplicate-output-plan rejection;
+- streamed xxHash64, MD5, and SHA-1 canonical vectors; and
+- ASC MHL destination paths, selected hash algorithm, transfer semantics, and resumed-file hashes.
 
-## 2. Bugs found and fixed
+## Build evidence
 
-None of these would have been caught by reading the code casually; two of them would have
-produced an app that *runs* and quietly does the wrong thing.
+The 0.3.0 Release configuration built as a universal `arm64` + `x86_64` macOS app. The local review
+build is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its product
+capabilities are limited to user-selected read/write plus app-scoped bookmark access; it contains
+no network entitlement. The local review signature also includes Xcode's development-only
+`get-task-allow` flag.
 
-| Bug | Why it mattered |
-|---|---|
-| **`AppState` missing `import SwiftUI`** | Uses `Binding` for form fields. Straight compile error |
-| **Nested ObservableObjects never propagated** | SwiftUI doesn't observe an `ObservableObject` held inside another one. Views watching `AppState` would have seen *nothing* when `configStore`, `volumes`, `nexus` or the network log published — the drive list would sit stale, settings changes wouldn't appear to take, and the request log would stay empty even while requests were happening. Fixed by forwarding each child's `objectWillChange` in `AppState.init` |
-| **`NSWorkspace` observer tokens discarded** | Block-based observers can be released when their token isn't retained. The app would have silently stopped noticing drives being plugged in — the worst kind of bug, because it looks like nothing is wrong |
-| **`h ^ x &* y` without parentheses** | `&*` binds tighter than `^` in Swift, so the expression didn't mean what it read as. Only a fingerprint, but a wrong fingerprint means false "nothing changed" reports |
-| **Unsorted digest fold** | Fixed alongside — folder digests now fold over sorted hashes, so two identical drives can't be reported as different because of enumeration order |
-| **Redundant `objectWillChange.send()`** | Left over from before `upsert` handled publishing |
+Installed review build:
 
----
+`/Applications/Vaultline Ingest 0.3 Review.app`
 
-## 3. Checked and believed sound
+This is a local review artifact, not a notarized or public release.
 
-- Every state-changing path in `OffloadEngine` — no move, no delete, no overwrite exists
-  in the file at all
-- `CollisionPolicy` has no `.overwrite` case
-- Security scopes held across all passes, released in every exit path including cancel
-- `release.sh` guards: sandbox on, no `network.server`, no broad filesystem entitlement,
-  and no `URLSession` outside `NexusClient.swift` (verified — nothing else creates one)
-- MHL manifest lists verified files only
-- Sidecar never overwrites an existing record; it suffixes instead
-- Sequence numbers come from a stable sort, so re-running a card doesn't renumber
+## Visible product exercise
 
----
+The installed app was exercised through its actual macOS UI with a disposable two-file camera-card
+tree and destination:
 
-## 4. What only a Mac can settle
+1. First launch opened directly into “Drop a card or folder here,” with no product/account chooser.
+2. The configured-job sheet displayed the useful default brief and rejected `2026-8-27` with the
+   exact `YYYY-MM-DD` correction.
+3. `2026-08-27`, shooter `Jordan Lee`, and project `Launch Film` previewed
+   `01 Shoots/260827_Launch Film`, the complete folder tree, the exact camera-media landing folder,
+   and the absence of a fabricated Premiere file.
+4. Job creation produced the previewed tree and no `.prproj` without a real configured template.
+5. Ingest copied two nested card files, read them back, and reported 2 of 2 verified.
+6. Independent SHA-256 checks matched source and destination files after the app completed.
+7. The plain-text ingest record contained the operator brief, destination, counts, algorithm, and
+   per-file xxHash64 values.
+8. Both generated standalone ASC MHL manifests validated against the official ASC reference XSD.
+9. Re-running the same card copied zero media bytes, reported both files already present and
+   matched, and did not rewrite them.
+10. Replacing one disposable destination file with different bytes produced a visible name clash;
+    the app reported the exact path and left the conflicting bytes unchanged.
 
-- Does it compile. Expect some errors — 4,400 lines, never built
-- SwiftUI layout: nothing here has been rendered
-- TCC / sandbox behaviour on a real external volume
-- `NSWorkspace` mount notifications with a real card
-- Whether `xxhsum` agrees with the Swift build on a real file
+## Standards correction
 
----
+The inherited manifest writer incorrectly described an offload as `in-place`, labeled initial
+hashes as `verified`, and wrote a non-schema root-hash shape. The 0.3.0 writer now emits a standalone
+ASC MHL `transfer` manifest, labels initial hashes `original`, omits the optional root hash rather
+than inventing one, writes destination-relative paths, and never replaces an existing manifest.
 
-## 5. Honest status of "send a client a command"
+## Remaining release boundaries
 
-**Not yet public.** The command, installer, checksum gate, pairing hand-off, download
-page, and signed/notarized/stapled 0.2.1 DMG all exist. The installer is pinned to the
-final artifact SHA-256. What does not exist is the DMG and download surface at the
-public URL.
-
-Release checklist:
-
-1. ~~`xcodegen generate` → build in Xcode → fix compile errors~~
-2. ~~Fill in Team ID (`ExportOptions.plist`, `project.yml`)~~
-3. ~~Produce a signed, notarized, stapled DMG and pin its SHA-256 in `install.sh`~~
-4. Upload the DMG, `install.sh`, and `index.html`
-
-After step 4 the command works, for anyone.
+Before public distribution: independent exact-diff review, clean-Mac and physical-card/external-
+volume qualification, Developer ID signing, notarization/stapling, public hosting, and a real team's
+configuration. Those are not claims made by this receipt.

@@ -16,6 +16,13 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertEqual(config.effectiveTeam.workflows.first?.mediaFolder, "01_Media/Camera")
     }
 
+    func testDateFieldRequiresExactRealCalendarDate() {
+        let field = IngestFormField(label: "Shoot date", kind: .date, required: true)
+        XCTAssertTrue(field.isValid(answer: "2026-08-27"))
+        XCTAssertFalse(field.isValid(answer: "2026-8-27"))
+        XCTAssertFalse(field.isValid(answer: "2026-02-30"))
+    }
+
     func testPortablePackageRoundTripsWithoutConnectionState() throws {
         let original = TeamConfigurationPackage(
             team: TeamConfiguration(teamName: "Northstar", workflows: [.standard]),
@@ -122,6 +129,25 @@ final class TeamWorkflowTests: XCTestCase {
     func testPackageRejectsDuplicateFormTokens() {
         var form = IngestFormConfig()
         form.fields[0].token = "project"
+        let package = TeamConfigurationPackage(
+            team: TeamConfiguration(), form: form, naming: NamingConfig(),
+            checksum: .xxhash64, workflow: WorkflowConfig())
+        XCTAssertThrowsError(try package.validated())
+    }
+
+    func testPackageRejectsUnsafeIngestRecordFilename() {
+        var form = IngestFormConfig()
+        form.sidecarName = "../../outside.txt"
+        let package = TeamConfigurationPackage(
+            team: TeamConfiguration(), form: form, naming: NamingConfig(),
+            checksum: .xxhash64, workflow: WorkflowConfig())
+        XCTAssertThrowsError(try package.validated())
+    }
+
+    func testPackageRejectsInvalidChoiceConfiguration() {
+        var form = IngestFormConfig()
+        form.fields.append(IngestFormField(
+            label: "Camera body", kind: .choice, options: ["A", "A"], token: "cameraBody"))
         let package = TeamConfigurationPackage(
             team: TeamConfiguration(), form: form, naming: NamingConfig(),
             checksum: .xxhash64, workflow: WorkflowConfig())

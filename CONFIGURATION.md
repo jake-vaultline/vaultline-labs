@@ -15,7 +15,8 @@ Vaultline configures:
 - the complete relative folder tree and the exact media landing folder;
 - an optional destination-root suggestion;
 - an optional client-supplied `.prproj` template and its derived output name; and
-- checksum, manifest, sidecar, rename, and collision-reporting preferences.
+- checksum, manifest, sidecar, and rename preferences. Verification, copy-only behavior, and
+  visible collision reporting are mandatory safety rules, not configurable switches.
 
 Free customization does not include new features, integrations, shared state, Media Nexus/Relay,
 bespoke source forks, signing, deployment, or ongoing workflow engineering.

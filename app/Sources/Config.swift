@@ -13,19 +13,10 @@ struct IngestConfig: Codable {
     /// supplies the excellent standalone default until the normalized config
     /// is saved.
     var team: TeamConfiguration?
-    /// Optional for backward compatibility with config files written before
-    /// drive scan rules existed. The effective value is deliberately local and
-    /// conservative: scan manually unless the local team configuration opts in.
-    var driveScanRules: DriveScanRules?
-    /// Separate hosted metadata projection for Drive Passports. Optional so
-    /// existing config.json files written before Drive Tags continue to decode.
-    var passport: PassportConfig?
-
     /// Retained as a UI compatibility seam while old managed-state branches are
     /// removed. Standalone team configurations are always locally editable.
     var isManaged: Bool { false }
 
-    var effectiveDriveScanRules: DriveScanRules { driveScanRules ?? DriveScanRules() }
     var effectiveTeam: TeamConfiguration { team ?? TeamConfiguration() }
 
     mutating func normalizeForStandalone() {
@@ -34,24 +25,6 @@ struct IngestConfig: Codable {
         if form.fields.isEmpty || form.fields.allSatisfy({ $0.token == nil }) {
             form = IngestFormConfig()
         }
-    }
-}
-
-/// Rules for the optional local drive registry. A pattern scopes collection tracking to
-/// folders that carry a team's asset identity (for example `^JOB-[0-9]{4}$`).
-/// It is a regular expression over the folder name, not its machine-specific
-/// absolute path.
-struct DriveScanRules: Codable, Equatable {
-    var folderNamePattern = ""
-    var automaticOnMount = false
-
-    var trimmedPattern: String {
-        folderNamePattern.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var patternIsValid: Bool {
-        trimmedPattern.isEmpty || (try? NSRegularExpression(
-            pattern: trimmedPattern, options: [.caseInsensitive])) != nil
     }
 }
 
@@ -77,38 +50,7 @@ struct DestinationConfig: Codable, Identifiable {
 }
 
 struct WorkflowConfig: Codable {
-    var verify = true
     var manifest = true
-    var onCollision: CollisionPolicy = .report
-    var createStructure = true
-
-    enum CollisionPolicy: String, Codable, CaseIterable, Identifiable {
-        case report, skipQuietly
-        var id: String { rawValue }
-        var displayName: String {
-            switch self {
-            case .report:       return "Flag it prominently and continue"
-            case .skipQuietly:  return "Note it in the report and continue"
-            }
-        }
-        // Deliberately no `.overwrite`. See spec §3 — there is no case where
-        // silently replacing existing media is the right default, and offering
-        // it as an option is how it ends up switched on before a night shoot.
-        //
-        // Note both options continue rather than stopping. A destination file
-        // that is byte-identical isn't a collision at all — it's a resumed
-        // card — and the engine tells the difference by hashing, so the only
-        // thing left to decide is how loudly to report a genuine clash.
-    }
-}
-
-struct PassportConfig: Codable {
-    var url = ""
-    var deviceName = ""
-    var connectedAt: Date?
-    var isConnected: Bool { connectedAt != nil && !url.isEmpty }
-
-    enum CodingKeys: String, CodingKey { case url, deviceName, connectedAt }
 }
 
 // MARK: - Store
@@ -169,24 +111,6 @@ final class ConfigStore: ObservableObject {
         c.checksum = package.checksum
         c.workflow = package.workflow
         c.normalizeForStandalone()
-        config = c
-        save()
-    }
-
-    /// Passport connectivity is local machine state and never part of a
-    /// portable team configuration.
-    func updatePassport(_ change: (inout PassportConfig) -> Void) {
-        var c = config
-        var p = c.passport ?? PassportConfig()
-        change(&p)
-        c.passport = p
-        config = c
-        save()
-    }
-
-    func disconnectPassport() {
-        var c = config
-        c.passport = nil
         config = c
         save()
     }

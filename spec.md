@@ -1,8 +1,8 @@
 # Vaultline Labs Ingest — product specification
 
-**Status: VLP-415 implementation candidate. Standalone 0.3.0 app source, clean automated tests, and
-an unsigned Release build are complete; independent review and hands-on qualification remain. The
-notarized 0.2.1 DMG predates this work and is not this version.**
+**Status: VLP-415 review candidate. Standalone 0.3.0 passes native tests, a universal Release build,
+synthetic-card edge cases, and hands-on UI qualification. Independent exact-diff review and public
+release gates remain. The notarized 0.2.1 DMG predates this work and is not this version.**
 
 ## Product
 
@@ -38,7 +38,8 @@ The versioned JSON package configures:
 - the complete job folder tree and exact media landing folder;
 - optional edit/project folders;
 - an optional real client-supplied Premiere project template and derived output name; and
-- checksum, manifest, sidecar, file-renaming, and collision-reporting preferences.
+- checksum, manifest, sidecar, and file-renaming preferences. Verification, copy-only behavior,
+  and visible collision reporting are mandatory safety rules, not configurable switches.
 
 Configuration import is transactional: unsupported schemas, duplicate workflow IDs, empty
 workflows, unsafe/traversing paths, inconsistent media/project folder references, missing required
@@ -60,6 +61,12 @@ These rules outrank every feature:
 6. Write manifests only for verified files.
 7. Expose partial completion, cancellation, conflicts, and failures in operator language.
 8. Reject configuration paths that could escape the selected destination.
+9. Stage every new copy under an app-owned hidden path, verify it there, then atomically publish it
+   at the intended media path. Cancellation never leaves a partial final file.
+10. On restart, remove only abandoned app-owned staging data; a rerun hashes and skips complete
+    matching files, so interruption recovery needs no fragile transfer database.
+11. Block destinations inside the source, overlapping destination roots, and rename plans that
+    would collapse multiple source files onto one destination path.
 
 ## Customization boundary
 
@@ -76,9 +83,8 @@ VLP-415 may implement, test, build, and prepare a reviewable source commit. Deve
 notarization, public download hosting, website/lead-capture deployment, campaign activation, and
 real-client configuration are separate protected steps.
 
-## Open / undecided
+## Product boundary decision
 
-- Whether Drive Passports remains visible in the first public Labs Ingest release or follows later.
-- Whether the resident Drives registry belongs in the lead-magnet launch surface or should be
-  deferred to keep the first-run journey entirely focused on ingest.
-- The exact public name/version and release date after hands-on product review.
+The first public binary is ingest-only. Drive Inspector/inventory, Drive Passport, Relay, Media
+Nexus, accounts, telemetry, update checks, and all other network behavior are separate products or
+future product decisions. The exact public version and release date follow hands-on product review.

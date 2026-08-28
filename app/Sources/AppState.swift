@@ -4,77 +4,31 @@ import SwiftUI
 import Combine
 
 /// Ties the standalone team configuration and offload engine together and owns
-/// the state the UI renders. The standalone Labs utility has no Media Nexus or
-/// Relay client; Drive Passports are a separate optional metadata service.
+/// the state the UI renders. The standalone Labs utility has no Media Nexus,
+/// Relay, account, telemetry, or other network client.
 @MainActor
 final class AppState: ObservableObject {
 
     let configStore: ConfigStore
-    let networkLog: NetworkLog
-    let passports: DrivePassportClient
-    let volumes: VolumeMonitor
 
     private var bag = Set<AnyCancellable>()
 
     /// SwiftUI does **not** observe nested ObservableObjects. A view watching
-    /// `AppState` sees nothing when `configStore`, `volumes`, or the
-    /// network log publishes — the drive list would sit stale, settings changes
-    /// wouldn't take, the request log would never appear.
-    ///
-    /// Forwarding each child's `objectWillChange` is the fix. Every child must
-    /// be listed here; adding one and forgetting this is a silent, confusing bug.
+    /// `AppState` sees nothing when `configStore` publishes. Forward its changes
+    /// so an imported or edited team package immediately refreshes the app.
     init() {
         let loadedConfig = ConfigStore()
         configStore = loadedConfig
-        networkLog = NetworkLog()
-        passports = DrivePassportClient(log: networkLog)
-        volumes = VolumeMonitor(rules: loadedConfig.config.effectiveDriveScanRules)
-
-        for child in [
-            configStore.objectWillChange.eraseToAnyPublisher(),
-            volumes.objectWillChange.eraseToAnyPublisher(),
-            passports.objectWillChange.eraseToAnyPublisher(),
-            networkLog.objectWillChange.eraseToAnyPublisher()
-        ] {
-            child
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in self?.objectWillChange.send() }
-                .store(in: &bag)
-        }
-
-        passports.$completedOutboxSync
-            .compactMap { $0 }
+        configStore.objectWillChange
             .receive(on: RunLoop.main)
-            .sink { [weak self] event in
-                self?.volumes.recordPassport(
-                    volumeID: event.volumeID, driveID: event.driveID,
-                    syncedAt: event.syncedAt,
-                    state: event.tagPaired ? "paired" : "synced")
-            }
+            .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &bag)
-
-        configStore.$config
-            .map(\.effectiveDriveScanRules)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] rules in self?.volumes.updateScanRules(rules) }
-            .store(in: &bag)
-    }
-
-    /// Which half of the app is on screen. Drives is the standing view — the
-    /// thing that's useful on a day when nothing is being ingested.
-    @Published var section: Section = .ingest
-    enum Section: String, CaseIterable, Identifiable {
-        case drives, ingest
-        var id: String { rawValue }
-        var title: String { self == .drives ? "Drives" : "Ingest" }
     }
 
     /// Answers to the configurable shoot form, keyed by field id.
     @Published var formAnswers: [UUID: String] = [:]
 
     /// Job folder created this session, if any — offered as a destination.
-    @Published var lastJob: StructureBuilder.Result?
     @Published var lastConfiguredJob: ConfiguredJobBuilder.Result?
 
     @Published var sourceURL: URL?
@@ -83,21 +37,6 @@ final class AppState: ObservableObject {
     @Published var results: [IngestFile] = []
     @Published var isRunning = false
     @Published var message: String?
-
-    struct PassportPrompt: Identifiable {
-        let id = UUID()
-        let volumeName: String
-        let code: String
-        let expiresAt: String
-        let serviceURL: String
-    }
-    @Published var passportPrompt: PassportPrompt?
-
-    struct DriveIdentityPrompt: Identifiable {
-        let id = UUID()
-        let review: DrivePassportClient.DriveIdentityReview
-    }
-    @Published var driveIdentityPrompt: DriveIdentityPrompt?
 
     private let engine = OffloadEngine()
     private var scopes = ScopeHolder()
@@ -113,7 +52,8 @@ final class AppState: ObservableObject {
 
     var canStart: Bool {
         sourceURL != nil && !plan.isEmpty && !destinations.isEmpty
-            && !isRunning && missingRequired.isEmpty
+            && !isRunning && missingRequired.isEmpty && invalidFields.isEmpty
+            && unsafeDestinationReason == nil && unsafePlanReason == nil
     }
 
     /// Why Start is unavailable, in the user's terms. A disabled button with no
@@ -128,14 +68,15 @@ final class AppState: ObservableObject {
                 ? "\(f.label) is required."
                 : "\(missingRequired.count) required fields are still blank."
         }
+        if let field = invalidFields.first {
+            return "\(field.label) isn't valid.\(field.kind == .date ? " Use YYYY-MM-DD." : "")"
+        }
+        if let issue = unsafeDestinationReason { return issue }
+        if let issue = unsafePlanReason { return issue }
         return nil
     }
 
     var plannedBytes: Int64 { plan.reduce(0) { $0 + $1.size } }
-
-    var copyFindings: [DriveCopyFinding] {
-        DriveCopyAnalyzer.findings(in: volumes.volumes)
-    }
 
     // MARK: Source
 
@@ -151,7 +92,7 @@ final class AppState: ObservableObject {
     }
 
     func setSource(_ url: URL) {
-        section = .ingest
+        Bookmarks.save(url)
         sourceURL = url
         results = []
         progress = OffloadProgress()
@@ -220,13 +161,21 @@ final class AppState: ObservableObject {
         // the whole offload. Losing write access mid-card is not recoverable.
         scopes.releaseAll()
         scopes = ScopeHolder()
-        let available = scopes.open(paths: destinations.map(\.root))
-        let usable = destinations.filter { available.contains($0.root) || FileManager.default.isWritableFile(atPath: $0.root) }
-
-        guard !usable.isEmpty else {
-            message = "Couldn't get write access to any destination. Re-add them in Settings."
+        let available = scopes.open(paths: [source.path] + destinations.map(\.root))
+        guard available.contains(source.path) || FileManager.default.isReadableFile(atPath: source.path) else {
+            scopes.releaseAll()
+            message = "Couldn't keep access to the source. Choose the card or folder again."
             return
         }
+        let unavailable = destinations.filter {
+            !available.contains($0.root) && !FileManager.default.isWritableFile(atPath: $0.root)
+        }
+        guard unavailable.isEmpty else {
+            scopes.releaseAll()
+            message = "No files were copied because \(unavailable.map(\.label).joined(separator: ", ")) couldn't be opened. Re-add or reconnect every destination."
+            return
+        }
+        let usable = destinations
 
         isRunning = true
         message = nil
@@ -238,19 +187,25 @@ final class AppState: ObservableObject {
             guard let self else { return }
             let engine = self.engine
 
-            let (finalProgress, finished) = await engine.run(
+            let (engineProgress, finished) = await engine.run(
                 files: files, destinations: usable, algorithm: algorithm,
                 onProgress: { p in Task { @MainActor in self.progress = p } })
 
-            self.progress = finalProgress
+            var finalProgress = engineProgress
             self.results = finished
-            self.isRunning = false
 
             // Manifest last, and only over verified files.
             if self.config.workflow.manifest {
                 for d in usable {
-                    _ = try? MHLWriter.write(files: finished, destination: d,
-                                             algorithm: algorithm, sourceName: sourceName)
+                    guard finished.contains(where: {
+                        $0.destinations[d.root]?.isVerified == true
+                    }) else { continue }
+                    do {
+                        _ = try MHLWriter.write(files: finished, destination: d,
+                                                algorithm: algorithm, sourceName: sourceName)
+                    } catch {
+                        finalProgress.failures.append("Manifest → \(d.label): \(error.localizedDescription)")
+                    }
                 }
             }
 
@@ -264,8 +219,16 @@ final class AppState: ObservableObject {
                     sourceName: sourceName, destinations: usable, files: finished,
                     algorithm: algorithm, progress: finalProgress)
                 for d in usable {
-                    _ = try? IngestSidecar.write(body, to: d, name: form.sidecarName)
+                    do {
+                        _ = try IngestSidecar.write(body, to: d, name: form.sidecarName)
+                    } catch {
+                        finalProgress.failures.append("Ingest record → \(d.label): \(error.localizedDescription)")
+                    }
                 }
+            }
+
+            if !finalProgress.failures.isEmpty, finalProgress.phase == .done {
+                finalProgress.phase = .failed
             }
 
             // Non-sticky fields clear so the next card doesn't inherit the last
@@ -273,12 +236,18 @@ final class AppState: ObservableObject {
             for f in form.fields where !f.sticky { self.formAnswers[f.id] = "" }
 
             self.scopes.releaseAll()
+            self.progress = finalProgress
+            self.isRunning = false
+            self.task = nil
             self.message = Self.summary(finalProgress, destinations: usable.count)
         }
     }
 
     private static func summary(_ p: OffloadProgress, destinations: Int) -> String {
         let d = "\(destinations) destination\(destinations == 1 ? "" : "s")"
+        if p.phase == .cancelled {
+            return "Stopped safely — \(p.filesVerified) files were fully verified on \(d). Incomplete staging was removed; re-run the card to continue."
+        }
         if !p.hasProblems {
             var s = "Done — \(p.filesVerified) files verified on \(d)."
             if p.filesAlreadyPresent > 0 {
@@ -294,10 +263,7 @@ final class AppState: ObservableObject {
 
     func cancel() {
         task?.cancel()
-        task = nil
-        isRunning = false
-        scopes.releaseAll()
-        message = "Stopped. Files already verified are fine; the rest were not copied."
+        message = "Stopping safely after the current disk operation…"
     }
 
     // MARK: Form
@@ -318,45 +284,42 @@ final class AppState: ObservableObject {
         }
     }
 
+    var invalidFields: [IngestFormField] {
+        guard config.form.enabled else { return [] }
+        return config.form.fields.filter {
+            let value = formAnswers[$0.id] ?? $0.resolvedDefault()
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !$0.isValid(answer: value)
+        }
+    }
+
+    func isInvalid(_ field: IngestFormField) -> Bool {
+        invalidFields.contains(where: { $0.id == field.id })
+    }
+
+    var unsafeDestinationReason: String? {
+        guard let sourceURL else { return nil }
+        return IngestPathSafety.issue(source: sourceURL, destinations: destinations)
+    }
+
+    var unsafePlanReason: String? { IngestPlanSafety.issue(files: plan) }
+
     var workflowValues: WorkflowTemplate.Values {
         var values: [String: String] = [:]
+        var workflowDate = Date()
         for field in config.form.fields {
             guard let token = field.token, !token.isEmpty else { continue }
-            values[token] = formAnswers[field.id] ?? field.resolvedDefault()
+            let answer = formAnswers[field.id] ?? field.resolvedDefault()
+            values[token] = answer
+            if field.kind == .date, let parsed = field.dateValue(from: answer),
+               token.lowercased() == "shootdate" {
+                workflowDate = parsed
+            }
         }
-        return WorkflowTemplate.Values(fields: values)
+        return WorkflowTemplate.Values(fields: values, date: workflowDate)
     }
 
     // MARK: Jobs
-
-    /// Creates a folder tree for a new job and offers its shoot folder as a
-    /// destination. This is the step that happens *before* the card goes in,
-    /// which is where structure normally goes wrong.
-    func createJob(template: StructureBuilder.Template, title: String, in parent: URL) {
-        let name = StructureBuilder.jobName(naming: config.naming, jobTitle: title)
-        do {
-            let result = try StructureBuilder.create(template: template, jobName: name, in: parent)
-            lastJob = result
-
-            let target = StructureBuilder.suggestedIngestFolder(in: result.jobRoot, template: template)
-            Bookmarks.save(parent)
-            Bookmarks.save(result.jobRoot)
-            configStore.update { c in
-                guard !c.destinations.contains(where: { $0.path == target.path }) else { return }
-                c.destinations.insert(DestinationConfig(
-                    path: target.path,
-                    label: result.jobRoot.lastPathComponent,
-                    isPrimary: c.destinations.isEmpty), at: 0)
-            }
-
-            let made = result.created.count
-            message = made > 0
-                ? "Created \(name) — \(made) folders. Camera media will land in \(target.lastPathComponent)."
-                : "\(name) already existed. Nothing was changed."
-        } catch {
-            message = "Couldn't create the job folder: \(error.localizedDescription)"
-        }
-    }
 
     /// Creates one configured team job and makes its media landing folder the
     /// active ingest destination. Existing folders and project files are never
@@ -370,6 +333,14 @@ final class AppState: ObservableObject {
             defer { jobScope.releaseAll() }
             let plan = try ConfiguredJobPlan.make(
                 workflow: workflow, selectedRoot: selectedRoot, values: workflowValues)
+            if let sourceURL, let issue = IngestPathSafety.issue(
+                source: sourceURL,
+                destinations: [Destination(
+                    root: plan.mediaRoot.path,
+                    label: "The configured job",
+                    isPrimary: true)]) {
+                throw TeamConfigurationError.invalidWorkflow(issue)
+            }
             let result = try ConfiguredJobBuilder.create(plan)
             lastConfiguredJob = result
             Bookmarks.save(selectedRoot)
@@ -407,76 +378,4 @@ final class AppState: ObservableObject {
         .sorted { ($0.problems > 0 ? 0 : 1, $0.file.relativePath) < ($1.problems > 0 ? 0 : 1, $1.file.relativePath) }
     }
 
-    // MARK: Drive Passports
-
-    func connectPassports(url: String, code: String) async {
-        do {
-            let result = try await passports.connect(
-                urlString: url, code: code,
-                deviceName: Host.current().localizedName ?? "Mac")
-            configStore.updatePassport { p in
-                p.url = url
-                p.deviceName = result.deviceID
-                p.connectedAt = Date()
-            }
-            message = "Connected to \(result.workspaceName). Scan a drive, then create its Drive Passport."
-        } catch {
-            message = error.localizedDescription
-        }
-    }
-
-    func disconnectPassports() {
-        if let p = config.passport { passports.disconnect(urlString: p.url) }
-        configStore.disconnectPassport()
-        message = "Drive Passports disconnected. Local drive history is unchanged."
-    }
-
-    func preparePassport(_ volume: KnownVolume, createPairing: Bool? = nil,
-                         identityResolution: DrivePassportClient.IdentityResolution? = nil) async {
-        guard let config = config.passport, config.isConnected else {
-            message = "Connect Drive Passports in Settings first."
-            return
-        }
-        do {
-            let wantsPairing = createPairing ?? (volume.passportDriveID == nil)
-            let result = try await passports.preparePassport(
-                config: config, volume: volume, createPairing: wantsPairing,
-                identityResolution: identityResolution)
-            let syncState: String
-            if !result.snapshotSynced { syncState = "pending" }
-            else if result.tagPaired { syncState = "paired" }
-            else if result.pairing != nil { syncState = "awaiting_tag" }
-            else { syncState = "synced" }
-            volumes.recordPassport(volumeID: volume.id, driveID: result.driveID,
-                                   syncedAt: result.snapshotSynced ? Date() : volume.passportLastSyncedAt,
-                                   state: syncState)
-            if let pairing = result.pairing {
-                passportPrompt = PassportPrompt(
-                    volumeName: volume.name, code: pairing.code,
-                    expiresAt: pairing.expiresAt, serviceURL: config.url)
-            } else if result.snapshotSynced {
-                message = result.tagPaired
-                    ? "Drive Passport refreshed. The physical tag is attached."
-                    : "Drive Passport refreshed."
-            } else {
-                message = "Snapshot saved locally and queued. Drive Passports will retry automatically when connectivity returns."
-            }
-        } catch PassportError.identityReview(let review) {
-            driveIdentityPrompt = DriveIdentityPrompt(review: review)
-            message = nil
-        } catch {
-            message = error.localizedDescription
-        }
-    }
-
-    func resolveDriveIdentity(_ prompt: DriveIdentityPrompt,
-                              resolution: DrivePassportClient.IdentityResolution) async {
-        guard let volume = volumes.volumes.first(where: { $0.id == prompt.review.volumeID }) else {
-            driveIdentityPrompt = nil
-            message = "That drive is no longer in the local registry. Reconnect it and scan again."
-            return
-        }
-        driveIdentityPrompt = nil
-        await preparePassport(volume, createPairing: true, identityResolution: resolution)
-    }
 }

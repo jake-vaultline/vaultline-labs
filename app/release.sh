@@ -40,33 +40,31 @@ ditto "$BUILD/$SCHEME.xcarchive/Products/Applications/$SCHEME.app" "$APP"
 [[ -d "$APP" ]] || fail "Archive produced no .app"
 
 # ── THE GUARD ─────────────────────────────────────────────────────────────
-# Ingest is allowed outbound networking only for the optional Drive Passport
-# service. It can never be a server, can never reach outside the sandbox, and
-# never gains an entitlement nobody asked for.
+# Ingest is an offline utility. It can neither initiate nor accept a network
+# connection and never gains an entitlement nobody asked for.
 say "Verifying the entitlement contract"
 ENTS=$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -convert xml1 -o - - 2>/dev/null || true)
 
 grep -q "com.apple.security.app-sandbox" <<<"$ENTS" \
   || fail "App Sandbox is OFF. This app writes to people's drives; it stays sandboxed."
-grep -q "com.apple.security.network.server" <<<"$ENTS" \
-  && fail "network.server present. This app is a client only — it never listens."
+grep -Eq "com.apple.security.network.(client|server)" <<<"$ENTS" \
+  && fail "Network entitlement present. Standalone Ingest must remain offline."
 grep -q "com.apple.security.files.all" <<<"$ENTS" \
   && fail "Broad filesystem entitlement present. This app only ever sees what the user hands it."
 grep -q "com.apple.security.files.user-selected.read-write" <<<"$ENTS" \
   || fail "Missing user-selected read-write. The app can't write destinations."
-echo "  ✓ sandboxed · client-only network · user-selected files only"
+echo "  ✓ sandboxed · no network entitlement · user-selected files only"
 
-# Cheap tripwire for the Network panel's honesty: every request is supposed to
-# go through the audited service client. If another file starts creating URLSessions,
-# that panel silently stops being complete evidence.
+# Cheap tripwire for the product boundary. Network behavior belongs in other
+# products and must not enter the standalone Ingest binary.
 say "Checking the network surface"
-SESSIONS=$(grep -Erl 'URLSession[[:space:]]*\(|URLSession\.shared' Sources | grep -Ev "DrivePassportClient\.swift" || true)
-if [[ -n "$SESSIONS" ]]; then
-  fail "URLSession created outside the audited service clients:
-$SESSIONS
-Every request must go through DrivePassportClient or the Network panel is decoration."
+NETWORK_CALLS=$(grep -Erl 'URLSession[[:space:]]*\(|URLSession\.shared|NW(Connection|Listener)[[:space:]]*\(|WKWebView[[:space:]]*\(|CF(Read|Write)Stream|Process[[:space:]]*\(' Sources || true)
+if [[ -n "$NETWORK_CALLS" ]]; then
+  fail "Standalone Ingest contains a network-capable code path:
+$NETWORK_CALLS
+Network clients and shell-outs belong in separate products."
 fi
-echo "  ✓ all network traffic routes through the audited service client"
+echo "  ✓ no network or shell client in the app sources"
 
 say "Verifying signature"
 codesign --verify --deep --strict --verbose=2 "$APP"

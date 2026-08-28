@@ -22,10 +22,14 @@ enum MHLWriter {
 
         let stamp = ISO8601DateFormatter().string(from: Date())
         let fileStamp = stamp.replacingOccurrences(of: ":", with: "-")
-        let dir = URL(fileURLWithPath: destination.root).appendingPathComponent("ascmhl")
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        let url = dir.appendingPathComponent("\(safe(sourceName))_\(fileStamp).mhl")
+        let dir = URL(fileURLWithPath: destination.root, isDirectory: true)
+        let baseName = "\(safe(sourceName))_\(fileStamp)"
+        var url = dir.appendingPathComponent("\(baseName).mhl")
+        var suffix = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            url = dir.appendingPathComponent("\(baseName)-\(suffix).mhl")
+            suffix += 1
+        }
 
         var xml = #"<?xml version="1.0" encoding="UTF-8"?>"# + "\n"
         xml += "<hashlist version=\"2.0\" xmlns=\"urn:ASC:MHL:v2.0\">\n"
@@ -35,34 +39,29 @@ enum MHLWriter {
         xml += "    <tool version=\"\(appVersion)\">Vaultline Ingest</tool>\n"
         xml += "  </creatorinfo>\n"
         xml += "  <processinfo>\n"
-        xml += "    <process>in-place</process>\n"
-        xml += "    <roothash><\(algorithm.mhlName)>\(rootHash(verified, destination: destination))</\(algorithm.mhlName)></roothash>\n"
+        xml += "    <process>transfer</process>\n"
         xml += "  </processinfo>\n"
         xml += "  <hashes>\n"
 
         for f in verified {
-            guard case .verified(let hash)? = f.destinations[destination.root] else { continue }
+            guard let hash = verifiedHash(f.destinations[destination.root]) else { continue }
             xml += "    <hash>\n"
-            xml += "      <path size=\"\(f.size)\">\(esc(f.relativePath))</path>\n"
-            xml += "      <\(algorithm.mhlName) action=\"verified\">\(hash)</\(algorithm.mhlName)>\n"
+            xml += "      <path size=\"\(f.size)\">\(esc(f.destinationRelativePath))</path>\n"
+            xml += "      <\(algorithm.mhlName) action=\"original\">\(hash)</\(algorithm.mhlName)>\n"
             xml += "    </hash>\n"
         }
 
         xml += "  </hashes>\n</hashlist>\n"
 
-        try xml.write(to: url, atomically: true, encoding: .utf8)
+        try Data(xml.utf8).write(to: url, options: .withoutOverwriting)
         return url
     }
 
-    /// A hash over the per-file hashes, so the manifest as a whole can be
-    /// checked without re-reading the media.
-    private static func rootHash(_ files: [IngestFile], destination: Destination) -> String {
-        var hasher = XXHash64()
-        for f in files.sorted(by: { $0.relativePath < $1.relativePath }) {
-            guard case .verified(let hash)? = f.destinations[destination.root] else { continue }
-            if let d = (f.relativePath + hash).data(using: .utf8) { hasher.update(d) }
+    private static func verifiedHash(_ state: DestinationState?) -> String? {
+        switch state {
+        case .verified(let hash), .alreadyVerified(let hash): return hash
+        default: return nil
         }
-        return hasher.hexDigest()
     }
 
     private static var appVersion: String {

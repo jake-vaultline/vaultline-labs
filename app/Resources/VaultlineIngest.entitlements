@@ -3,17 +3,10 @@
 <plist version="1.0">
 <dict>
     <!--
-      Ingest is standalone and has no Media Nexus or Relay client. Its optional
-      Drive Passport feature requires outbound networking. Every such request
-      goes through DrivePassportClient and appears in Settings → Network.
-
-      No analytics, telemetry, update check, or crash reporting is present.
+      Ingest is standalone and has no Media Nexus, Relay, account, analytics,
+      telemetry, update check, crash reporting, or other network client.
     -->
     <key>com.apple.security.app-sandbox</key>
-    <true/>
-
-    <!-- Outbound is exclusively for the optional Drive Passport service. -->
-    <key>com.apple.security.network.client</key>
     <true/>
 
     <!--

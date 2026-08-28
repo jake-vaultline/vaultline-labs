@@ -36,11 +36,8 @@ struct JobSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: VL.Space.l) {
-                    if !state.missingRequired.isEmpty {
-                        Panel(tint: VL.amber.opacity(0.08)) {
-                            Text("Complete the required ingest details first: \(state.missingRequired.map(\.label).joined(separator: ", ")).")
-                                .font(VL.small).foregroundStyle(VL.inkDim)
-                        }
+                    if state.config.form.enabled && !state.config.form.fields.isEmpty {
+                        ShootForm()
                     }
 
                     VStack(alignment: .leading, spacing: VL.Space.s) {
@@ -110,7 +107,7 @@ struct JobSheet: View {
     }
 
     private var canCreate: Bool {
-        guard state.missingRequired.isEmpty, selectedRoot != nil else { return false }
+        guard state.missingRequired.isEmpty, state.invalidFields.isEmpty, selectedRoot != nil else { return false }
         if case .success = plan { return true }
         return false
     }

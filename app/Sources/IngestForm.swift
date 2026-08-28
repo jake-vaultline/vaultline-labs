@@ -61,10 +61,38 @@ struct IngestFormField: Codable, Identifiable, Hashable {
     func resolvedDefault(on date: Date = Date()) -> String {
         switch automaticValue {
         case .today:
-            let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.dateFormat = "yyyy-MM-dd"
             return formatter.string(from: date)
         case nil:
             return defaultValue
+        }
+    }
+
+    func dateValue(from value: String) -> Date? {
+        guard kind == .date else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.range(of: #"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"#,
+                            options: .regularExpression) != nil else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.isLenient = false
+        return formatter.date(from: trimmed)
+    }
+
+    func isValid(answer: String) -> Bool {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return !required }
+        switch kind {
+        case .date: return dateValue(from: trimmed) != nil
+        case .choice: return options.contains(trimmed)
+        case .toggle: return trimmed == "yes" || trimmed == "no"
+        default: return true
         }
     }
 }
@@ -155,7 +183,7 @@ enum IngestSidecar {
         }
 
         out += "\nChecksums above are \(algorithm.mhlName). A machine-readable\n"
-        out += "manifest is in the ascmhl folder alongside this file.\n"
+        out += "ASC MHL manifest is alongside this file.\n"
         return out
     }
 
@@ -169,10 +197,10 @@ enum IngestSidecar {
             let stem = (name as NSString).deletingPathExtension
             let ext = (name as NSString).pathExtension
             final = URL(fileURLWithPath: destination.root)
-                .appendingPathComponent("\(stem)-\(n).\(ext)")
+                .appendingPathComponent(ext.isEmpty ? "\(stem)-\(n)" : "\(stem)-\(n).\(ext)")
             n += 1
         }
-        try text.write(to: final, atomically: true, encoding: .utf8)
+        try Data(text.utf8).write(to: final, options: .withoutOverwriting)
         return final
     }
 

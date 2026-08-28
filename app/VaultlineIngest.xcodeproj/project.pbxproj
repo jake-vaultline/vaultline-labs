@@ -10,36 +10,23 @@
 		005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AA555146EDD3B7B1252AC /* XXHash64.swift */; };
 		0BC3BD43DCB9850532E6EFA1 /* IngestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 450B2FE5DEF28800BED5EA1A /* IngestView.swift */; };
 		0C5593A652F1D1FC48BF4900 /* TeamWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */; };
+		32757AFBC3399B1C2EA38519 /* OffloadEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */; };
 		3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6076C926FFBC6E541DD27B8 /* Theme.swift */; };
 		3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */; };
-		3CE61B42308862ED8EEBE7E0 /* KeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BD9B3704F803180086D79E /* KeychainTests.swift */; };
 		46196867D65F13F5DBCA12F3 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBECC7C3122C903D11E446 /* App.swift */; };
 		487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */; };
-		4F78583CE5773543E6DFEED2 /* DrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */; };
 		628AA6B8B4E4ED62E70B67BD /* JobSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38572BDEE3E7E7E61325CF86 /* JobSheet.swift */; };
 		62ACD351F5311D0DD0F2A2C3 /* FormViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397F9643CBE44140DD98B6CD /* FormViews.swift */; };
 		668F9E7D5B98417229697BEA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2DC857F29E9C077BB366E1C /* Assets.xcassets */; };
-		6755F7DE983156923C5BBDC3 /* DrivePassportClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC43C5E47A7254106F996873 /* DrivePassportClient.swift */; };
 		741C74366F4353C8012B0BB1 /* IngestForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */; };
-		7F2FE3BCC00C20D33FC93E22 /* RealDrivePassportIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */; };
-		817D97405A9C3A859F60479F /* PassportOutboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */; };
-		8ABFE5790AF85990C3A99384 /* VolumeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10717594ED2840CB5C8F137D /* VolumeMonitor.swift */; };
-		8F5E5EED0A82C145025A4086 /* PassportReconnectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */; };
 		910A3442757731973467C56D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C570AAEF5E04182780B6B4C /* AppState.swift */; };
-		A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */; };
-		ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */; };
 		AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1696B1EC98B3EE707114CF /* SetupWizard.swift */; };
-		B3BDA105559986F5167E0425 /* SecuritySupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D299100F2516CC626D291B1 /* SecuritySupport.swift */; };
-		C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A03FD61219C94637A2D1321 /* StructureBuilder.swift */; };
-		C912E871792BAF58134472CD /* DriveIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */; };
 		CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC9F0F2D3F92CB526913833 /* Checksums.swift */; };
 		CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 853C340DC6E6BDE4BC416F73 /* SettingsView.swift */; };
 		CE56991C0A87C3A54FA3AB7F /* NamingAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226428106CC8ACEA86164662 /* NamingAnalyzer.swift */; };
 		E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06F006E19AEDFF32901C1282 /* OffloadEngine.swift */; };
 		E515F7D39B693ACBB914CACA /* NameTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B524C5E579571F225EECD2C /* NameTemplate.swift */; };
-		E889E3905FD607A20CDD51C7 /* PassportOutbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */; };
 		F66315C03405E0BD9C8AB15D /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78A00530EE13C5692F84514 /* Config.swift */; };
-		F92A1FD22C8265D998A0CD58 /* VolumeIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */; };
 		FA1AC09743BCF9B032C7FA06 /* MHLWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE35658D613478FB3A539F8 /* MHLWriter.swift */; };
 /* End PBXBuildFile section */
 
@@ -56,10 +43,7 @@
 /* Begin PBXFileReference section */
 		06F006E19AEDFF32901C1282 /* OffloadEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffloadEngine.swift; sourceTree = "<group>"; };
 		0BC9F0F2D3F92CB526913833 /* Checksums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Checksums.swift; sourceTree = "<group>"; };
-		10717594ED2840CB5C8F137D /* VolumeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeMonitor.swift; sourceTree = "<group>"; };
-		15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeScannerTests.swift; sourceTree = "<group>"; };
 		226428106CC8ACEA86164662 /* NamingAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NamingAnalyzer.swift; sourceTree = "<group>"; };
-		253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportOutbox.swift; sourceTree = "<group>"; };
 		38572BDEE3E7E7E61325CF86 /* JobSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobSheet.swift; sourceTree = "<group>"; };
 		397F9643CBE44140DD98B6CD /* FormViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormViews.swift; sourceTree = "<group>"; };
 		39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmarks.swift; sourceTree = "<group>"; };
@@ -69,27 +53,17 @@
 		450B2FE5DEF28800BED5EA1A /* IngestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IngestView.swift; sourceTree = "<group>"; };
 		4B524C5E579571F225EECD2C /* NameTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameTemplate.swift; sourceTree = "<group>"; };
 		53DBECC7C3122C903D11E446 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivesView.swift; sourceTree = "<group>"; };
 		64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamWorkflowTests.swift; sourceTree = "<group>"; };
-		67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveIdentityTests.swift; sourceTree = "<group>"; };
-		6A03FD61219C94637A2D1321 /* StructureBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StructureBuilder.swift; sourceTree = "<group>"; };
-		6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealDrivePassportIntegrationTests.swift; sourceTree = "<group>"; };
-		7D299100F2516CC626D291B1 /* SecuritySupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecuritySupport.swift; sourceTree = "<group>"; };
 		80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VaultlineIngest.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportOutboxTests.swift; sourceTree = "<group>"; };
 		853C340DC6E6BDE4BC416F73 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8E4313427FE05C18F5BD54DE /* VaultlineIngestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VaultlineIngestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F1696B1EC98B3EE707114CF /* SetupWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWizard.swift; sourceTree = "<group>"; };
-		8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentityTests.swift; sourceTree = "<group>"; };
-		95BD9B3704F803180086D79E /* KeychainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainTests.swift; sourceTree = "<group>"; };
 		B2DC857F29E9C077BB366E1C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BCE35658D613478FB3A539F8 /* MHLWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MHLWriter.swift; sourceTree = "<group>"; };
 		C90AA555146EDD3B7B1252AC /* XXHash64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XXHash64.swift; sourceTree = "<group>"; };
-		D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeIdentity.swift; sourceTree = "<group>"; };
+		C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffloadEngineTests.swift; sourceTree = "<group>"; };
 		E6076C926FFBC6E541DD27B8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		E78A00530EE13C5692F84514 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
-		EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassportReconnectTests.swift; sourceTree = "<group>"; };
-		FC43C5E47A7254106F996873 /* DrivePassportClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivePassportClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -119,8 +93,6 @@
 				39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */,
 				0BC9F0F2D3F92CB526913833 /* Checksums.swift */,
 				E78A00530EE13C5692F84514 /* Config.swift */,
-				FC43C5E47A7254106F996873 /* DrivePassportClient.swift */,
-				5CAEFBFA22014E8748D06AF9 /* DrivesView.swift */,
 				397F9643CBE44140DD98B6CD /* FormViews.swift */,
 				3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */,
 				450B2FE5DEF28800BED5EA1A /* IngestView.swift */,
@@ -129,15 +101,10 @@
 				4B524C5E579571F225EECD2C /* NameTemplate.swift */,
 				226428106CC8ACEA86164662 /* NamingAnalyzer.swift */,
 				06F006E19AEDFF32901C1282 /* OffloadEngine.swift */,
-				253B3778A25A87BCC97A9D53 /* PassportOutbox.swift */,
-				7D299100F2516CC626D291B1 /* SecuritySupport.swift */,
 				853C340DC6E6BDE4BC416F73 /* SettingsView.swift */,
 				8F1696B1EC98B3EE707114CF /* SetupWizard.swift */,
-				6A03FD61219C94637A2D1321 /* StructureBuilder.swift */,
 				4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */,
 				E6076C926FFBC6E541DD27B8 /* Theme.swift */,
-				D2B12A6FAC5AF09F3E514548 /* VolumeIdentity.swift */,
-				10717594ED2840CB5C8F137D /* VolumeMonitor.swift */,
 				C90AA555146EDD3B7B1252AC /* XXHash64.swift */,
 			);
 			path = Sources;
@@ -155,14 +122,8 @@
 		C528C307BFE235A290CE05EB /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				67A5D8816DFF4DC35E62574E /* DriveIdentityTests.swift */,
-				95BD9B3704F803180086D79E /* KeychainTests.swift */,
-				84B197F0EE9B99E441ACC5FC /* PassportOutboxTests.swift */,
-				EEFE856AAE72B519E139221A /* PassportReconnectTests.swift */,
-				6B90F770244DE54722C85E8E /* RealDrivePassportIntegrationTests.swift */,
+				C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */,
 				64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */,
-				8FC221F6638F06881373EA02 /* VolumeIdentityTests.swift */,
-				15F2A1FC0AAE17C542D548ED /* VolumeScannerTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -260,14 +221,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C912E871792BAF58134472CD /* DriveIdentityTests.swift in Sources */,
-				3CE61B42308862ED8EEBE7E0 /* KeychainTests.swift in Sources */,
-				817D97405A9C3A859F60479F /* PassportOutboxTests.swift in Sources */,
-				8F5E5EED0A82C145025A4086 /* PassportReconnectTests.swift in Sources */,
-				7F2FE3BCC00C20D33FC93E22 /* RealDrivePassportIntegrationTests.swift in Sources */,
+				32757AFBC3399B1C2EA38519 /* OffloadEngineTests.swift in Sources */,
 				0C5593A652F1D1FC48BF4900 /* TeamWorkflowTests.swift in Sources */,
-				ABC8D961978F53A541340CD7 /* VolumeIdentityTests.swift in Sources */,
-				A2A4BA4D2A22BADB10272E31 /* VolumeScannerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,8 +235,6 @@
 				487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */,
 				CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */,
 				F66315C03405E0BD9C8AB15D /* Config.swift in Sources */,
-				6755F7DE983156923C5BBDC3 /* DrivePassportClient.swift in Sources */,
-				4F78583CE5773543E6DFEED2 /* DrivesView.swift in Sources */,
 				62ACD351F5311D0DD0F2A2C3 /* FormViews.swift in Sources */,
 				741C74366F4353C8012B0BB1 /* IngestForm.swift in Sources */,
 				0BC3BD43DCB9850532E6EFA1 /* IngestView.swift in Sources */,
@@ -290,15 +243,10 @@
 				E515F7D39B693ACBB914CACA /* NameTemplate.swift in Sources */,
 				CE56991C0A87C3A54FA3AB7F /* NamingAnalyzer.swift in Sources */,
 				E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */,
-				E889E3905FD607A20CDD51C7 /* PassportOutbox.swift in Sources */,
-				B3BDA105559986F5167E0425 /* SecuritySupport.swift in Sources */,
 				CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */,
 				AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */,
-				C1102B6064DC87199D2926A8 /* StructureBuilder.swift in Sources */,
 				3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */,
 				3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */,
-				F92A1FD22C8265D998A0CD58 /* VolumeIdentity.swift in Sources */,
-				8ABFE5790AF85990C3A99384 /* VolumeMonitor.swift in Sources */,
 				005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
