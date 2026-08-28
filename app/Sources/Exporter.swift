@@ -9,25 +9,35 @@ import UniformTypeIdentifiers
 @MainActor
 enum Exporter {
 
+
+
     enum Format: String, CaseIterable, Identifiable {
         case html, pdf, csv
         var id: String { rawValue }
 
         /// What the export menu offers.
         ///
-        /// PDF is deliberately absent. `pdf(from:)` reliably fails to return on
-        /// a real drive report inside the sandboxed release build: the app sits
-        /// idle, the WebContent process sits idle, no error is raised, and even
-        /// an explicit 90-second timeout around it does not fire. It works in
-        /// the test bundle, so it is something about the shipped, sandboxed
-        /// context, and it is not understood yet. A menu item that permanently
-        /// disables the export button is worse than one that is not there.
+        /// PDF is deliberately absent, and the reason is precise: in a signed,
+        /// sandboxed Release build `WKWebView.loadHTMLString` never reports
+        /// completion. Instrumented logging puts the stall exactly there, with
+        /// `didFinish` never delivered, so no PDF work is ever attempted. It
+        /// reproduces on an eleven-file report, so document size has nothing to
+        /// do with it, and it does not reproduce in the test bundle, which is
+        /// unsandboxed and unoptimised. That is as far as the diagnosis went;
+        /// the remaining suspect is that a sandboxed WKWebView needs
+        /// `com.apple.security.network.client` even for in-memory HTML, which
+        /// is the one entitlement this app must never carry.
         ///
-        /// Nothing is lost that a user cannot get in one step: the HTML is a
-        /// single self-contained file, and Print to PDF from any browser
-        /// paginates it properly through the browser's own print engine, which
-        /// honours the `@media print` rules the stylesheet already carries.
-        /// That is a better PDF than this app was producing.
+        /// A menu item that disables the export button for 90 seconds and then
+        /// errors is worse than one that is not there.
+        ///
+        /// Nothing is lost, and the replacement is measurably better. The HTML
+        /// is a single self-contained file, and Print to PDF from any browser
+        /// runs it through the browser's own print engine, which honours the
+        /// `@media print` rules the stylesheet has carried since 0.1 and which
+        /// this code path never used. Printed that way, a real 2 TB report
+        /// comes out as 13 pages at exactly US Letter, 612 x 792. The best this
+        /// app ever produced was one page 6,809 points tall.
         ///
         /// Tracked as VLP-496. The code stays, with its tests, so restoring the
         /// menu item is a one-line change once the hang is understood.
@@ -99,33 +109,35 @@ enum Exporter {
     /// offscreen, borderless window gives it a real surface without ever
     /// appearing on screen.
     ///
-    /// It renders one page at a time, by `rect`, and assembles the slices.
+    /// NOT REACHABLE FROM THE UI. See `Format.offered` for why, and read that
+    /// before trusting anything below.
     ///
-    /// A single `pdf(configuration:)` call over the whole document does not
-    /// merely produce an unreadable page the height of the report — past
-    /// roughly 7,000 points **it hangs**, with both the app and the WebContent
-    /// process sitting idle and the export button disabled forever. A real
-    /// 0.2.0 report measured 6,809 points and survived; widening the report to
-    /// show every duplicate group and 25 folders took it past 11,000 and it
-    /// stopped returning. Each slice here is one page tall, so the size of the
-    /// report no longer decides whether the export completes.
+    /// It renders one page at a time, by `rect`, and assembles the slices. A
+    /// single `pdf(configuration:)` call over the whole document produces one
+    /// page the height of the report, which for a real scan is 6,809 points and
+    /// upward: unreadable printed, absurd in a mail client, and it ignores every
+    /// `@media print` and `break-inside` rule in the stylesheet because nothing
+    /// ever breaks a page. Slicing fixes all of that and is fast — a fixture
+    /// with 200 duplicate groups across 600 paths exports in under a second.
     ///
-    /// `printOperation(with:)` would give CSS-aware page breaks, and cannot be
-    /// used: printing needs the `com.apple.security.print` sandbox
-    /// entitlement, which this app does not carry and should not gain casually
-    /// — the entitlement set is the privacy claim and the release guard audits
-    /// it. Breaks here are geometric, so a row can be cut across two pages.
-    /// That is the accepted trade.
+    /// It is also, on its own, not enough to make the export work: the stall is
+    /// upstream, in the page load. Do not mistake these tests passing for the
+    /// feature working.
+    ///
+    /// `printOperation(with:)` would give CSS-aware page breaks and cannot be
+    /// used either: printing needs the `com.apple.security.print` sandbox
+    /// entitlement, which this app does not carry and should not gain casually.
+    /// The entitlement set is the privacy claim and the release guard audits it.
     static func pdfData(from html: String) async throws -> Data {
         try await withTimeout(renderTimeout) { try await pdf(from: html) }
     }
 
     /// Runs `work`, throwing `pdfTimedOut` if it has not finished in time.
     ///
-    /// Whichever finishes first wins and the other is cancelled. Without this
-    /// a stalled WebKit render leaves the export button disabled with no error
-    /// and no way back short of quitting the app, which is exactly how the
-    /// oversized single-page render failed.
+    /// Whichever finishes first wins and the other is cancelled. Verified
+    /// firing at 90 seconds against the real stall, so a hung render surfaces
+    /// an error instead of leaving the export button disabled until the app is
+    /// force quit, which is how this failure first presented.
     private static func withTimeout(_ limit: Duration,
                                     _ work: @escaping @Sendable () async throws -> Data) async throws -> Data {
         try await withThrowingTaskGroup(of: Data.self) { group in
@@ -165,8 +177,18 @@ enum Exporter {
         window.setFrameOrigin(NSPoint(x: -10000, y: -10000))   // off any real screen
         window.contentView = web
 
+        // `navigationDelegate` is a WEAK reference and `loader` is a local, so
+        // an optimised build is free to release it once `wait()` suspends,
+        // which would nil the delegate and lose `didFinish`. Pinning it is
+        // correct either way.
+        //
+        // It was NOT the cause of the hang, though it looked like an excellent
+        // candidate: adding this changed nothing, and the stall stayed exactly
+        // where it was. Recorded so the next person does not spend the time
+        // twice.
         let loader = NavigationWaiter()
         web.navigationDelegate = loader
+        defer { withExtendedLifetime(loader) {} }
         web.loadHTMLString(html, baseURL: nil)
         try await loader.wait()
 

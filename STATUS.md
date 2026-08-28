@@ -314,33 +314,52 @@ the UTF-8 BOM and no em dashes. Then PDF export never returned: app idle at 0%,
 WebContent idle at 0.7%, no error, and `Export Report` disabled until the app
 was force quit.
 
-### What it was, and what it was not
+### What it actually is
 
-`pdf(configuration:)` with a default `WKPDFConfiguration` does not paginate; it
-snapshots the whole document onto one page. A 0.2.0 report measured 860 × 6,809
-points and survived that. Widening the report under VLP-491 to show every
-duplicate group, 25 folders and 25 files pushed a real one past **11,000
-points**, and WebKit stopped returning.
+Instrumented logging in a signed, sandboxed Release build puts the stall
+exactly at **`WKWebView.loadHTMLString`**: the load starts and `didFinish` is
+never delivered, so the continuation waiting on it never resumes and no PDF work
+is ever attempted. It reproduces on an **eleven-file report**, so document size
+has nothing to do with it, and it does not reproduce in the test bundle, which
+is unsandboxed and unoptimised.
 
-**0.3.1** rendered one page-sized `rect` at a time and assembled the slices, and
-added a 90-second timeout so a stall could never wedge the UI again. In the test
-bundle this is exact and fast: a fixture with 200 duplicate groups across 600
-paths exports in **0.8 seconds**, where the old path hung. In the shipped,
-sandboxed build it still hung — *and the timeout did not fire either*, which
-means the failure is not simply a slow render. A `sample` showed the main thread
-parked normally in its run loop, so the app was responsive; something in the
-async chain never resumed. Not understood.
+Two theories were tested and are wrong, recorded so nobody spends the time
+again:
 
-**0.3.2 removes PDF from the export menu.** A menu item that permanently
-disables the export button is worse than one that is not there. `Format.offered`
-carries the reasoning; the code and its tests stay, so restoring the item is a
-one-line change once the hang is understood. Tracked as **VLP-496**.
+- **Report size.** The original guess was that VLP-491's untrimming pushed the
+  document past what a single-page `pdf(configuration:)` would render. A real
+  report is 11,000+ points against 0.2.0's 6,809, so it fit the facts. It is
+  not the cause: an 11-file report hangs identically.
+- **The weak `navigationDelegate`.** `WKWebView.navigationDelegate` is weak and
+  the delegate was a local, so an optimised build releasing it early would have
+  explained a Release-only hang perfectly. Pinning it with
+  `withExtendedLifetime` changed nothing. The pin stays, because it is correct
+  regardless.
 
-Nothing is actually lost. The HTML is a single self-contained file, and Print to
-PDF from any browser paginates it through the browser's own print engine, which
-honours the `@media print` rules the stylesheet has carried since 0.1 and which
-the app's own PDF path never used. That is a better PDF than this app was
-producing. The menu label says so.
+The remaining suspect, untested, is that a sandboxed `WKWebView` needs
+`com.apple.security.network.client` even for in-memory HTML. That is the one
+entitlement this app must never carry, so confirming it would not produce a
+usable fix.
+
+Two things from that work were kept and do help: the render is now sliced into
+page-sized rects (a 200-group fixture exports in under a second, and the output
+is properly paginated rather than one tall page), and the 90-second timeout
+**was verified firing against the real stall**, so a hang now surfaces an error
+instead of leaving the export button disabled until the app is force quit.
+
+### Why removing it is not a downgrade
+
+`0.3.2` drops PDF from the export menu. The replacement is measurably better,
+not merely adequate: the exported HTML is a single self-contained file, and
+printing it to PDF from a browser runs it through the browser's print engine,
+which honours the `@media print` and `break-inside` rules the stylesheet has
+carried since 0.1 and which the app's own PDF path never used.
+
+Measured on the real 2 TB report: **13 pages at exactly US Letter, 612 × 792
+points.** The best this app ever produced was a single page 6,809 points tall.
+The menu label points at it.
+
+Tracked as **VLP-496**.
 
 ### Verified on the shipped 0.3.2 binary
 
