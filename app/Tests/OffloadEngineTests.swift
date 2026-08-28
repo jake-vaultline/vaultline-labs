@@ -294,6 +294,41 @@ final class OffloadEngineTests: XCTestCase {
         XCTAssertTrue(resumedResults[0].destinations[target.root]?.isVerified == true)
     }
 
+    func testSourceChangingDuringCopyFailsWithoutPublishingFinalFile() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = Data(repeating: 0x71, count: 8 * 1024 * 1024)
+        let source = try makeCard(in: root, data: original)
+        let sourceFile = source.appendingPathComponent("clip.mov")
+        let destination = root.appendingPathComponent("DEST", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let target = Destination(root: destination.path, label: "Field SSD", isPrimary: true)
+        let files = OffloadEngine.plan(source: source, naming: NamingConfig())
+        let signal = OneShot()
+
+        let (progress, results) = await OffloadEngine(bufferSize: 64 * 1024).run(
+            files: files,
+            destinations: [target],
+            algorithm: .xxhash64,
+            onProgress: { progress in
+                guard progress.bytesCopied > 0 else { return }
+                signal.run {
+                    try? Data(repeating: 0x22, count: 1024).write(to: sourceFile)
+                }
+            })
+
+        XCTAssertEqual(progress.phase, .failed)
+        XCTAssertTrue(progress.failures.contains { $0.contains("clip.mov") })
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destination.appendingPathComponent("clip.mov").path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destination.appendingPathComponent(".vaultline-ingest-staging").path))
+        guard case .failed(let detail) = results[0].destinations[target.root] else {
+            return XCTFail("Expected source-change failure")
+        }
+        XCTAssertTrue(detail.contains("source changed"))
+    }
+
     func testUnavailableDestinationProducesFailureWithoutChangingSource() async throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

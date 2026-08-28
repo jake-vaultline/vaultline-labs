@@ -80,7 +80,13 @@ struct IngestWorkflowPreset: Codable, Identifiable, Equatable {
         guard !jobNameTemplate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw TeamConfigurationError.invalidWorkflow("\(name) is missing a job-name template.")
         }
-        for path in [parentSubpath, mediaFolder] + folders + [projectFolder].compactMap({ $0 }) {
+        // An empty parent means "create the job directly under the destination
+        // the operator chose." Every path below the job must still be a safe,
+        // non-empty relative path.
+        if !parentSubpath.isEmpty {
+            try WorkflowPath.validateRelative(parentSubpath, context: name)
+        }
+        for path in [mediaFolder] + folders + [projectFolder].compactMap({ $0 }) {
             try WorkflowPath.validateRelative(path, context: name)
         }
         let folderSet = Set(folders.map(WorkflowPath.normalized))
@@ -287,6 +293,24 @@ enum ConfiguredJobBuilder {
             guard DestinationPathSafety.contains(target, under: plan.jobRoot) else {
                 throw TeamConfigurationError.invalidPath(
                     "A linked folder would create \(relative) outside the configured job.")
+            }
+        }
+
+        // Validate the complete directory tree before creating any part of it.
+        // `fileExists` alone is not enough: a regular file can occupy a path
+        // configured as a folder, and treating that as an existing directory
+        // would make job creation appear successful while producing an
+        // unusable media destination.
+        let directoryTargets = [(plan.jobName, plan.jobRoot)] + plan.workflow.folders.map {
+            ($0, plan.jobRoot.appendingPathComponent(
+                WorkflowPath.normalized($0), isDirectory: true))
+        }
+        for (label, url) in directoryTargets {
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+            guard isDirectory.boolValue else {
+                throw TeamConfigurationError.invalidWorkflow(
+                    "Can't create the configured folder \(label) because a file already exists at that path. Nothing was changed.")
             }
         }
 

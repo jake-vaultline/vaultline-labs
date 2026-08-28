@@ -226,8 +226,10 @@ private struct FieldEditorRow: View {
             VStack(spacing: 1) {
                 Button { move(-1) } label: { Image(systemName: "chevron.up") }
                     .buttonStyle(VLQuietButton()).disabled(index == 0)
+                    .accessibilityLabel("Move \(field.label) up")
                 Button { move(1) } label: { Image(systemName: "chevron.down") }
                     .buttonStyle(VLQuietButton()).disabled(index == count - 1)
+                    .accessibilityLabel("Move \(field.label) down")
             }
             .font(.system(size: 8))
             .opacity(hovering ? 1 : 0.35)
@@ -263,7 +265,8 @@ private struct FieldEditorRow: View {
                 label: { Image(systemName: "xmark") }
                 .buttonStyle(VLQuietButton())
                 .font(.system(size: 9, weight: .semibold))
-                .opacity(hovering ? 1 : 0)
+                .accessibilityLabel("Remove \(field.label)")
+                .help("Remove this form field")
         }
         .padding(.horizontal, VL.Space.s).padding(.vertical, 6)
         .background(hovering ? VL.slateHi : VL.slate,

@@ -33,8 +33,8 @@ The versioned JSON package configures:
 - form fields, stable tokens, labels, types, choices, required/sticky behavior, and defaults;
 - workflow names and descriptions;
 - job-name patterns such as `{date:yyMMdd}_{project}` and `{jobNumber}_{project}`;
-- optional configured destination-root suggestions and fixed relative parent folders such as
-  `01 Shoots`;
+- optional configured destination-root suggestions and optional fixed relative parent folders such
+  as `01 Shoots` (an empty parent puts the job directly under the chosen destination);
 - the complete job folder tree and exact media landing folder;
 - optional edit/project folders;
 - an optional real client-supplied Premiere project template and derived output name; and

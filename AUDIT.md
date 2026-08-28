@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 42 of 42 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 45 of 45 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -27,6 +27,8 @@ update checker, or network client. The app sandbox has no network client or serv
 - unavailable destination failure without source mutation;
 - destination disappearance during a staged copy with no partial final file, followed by a safe
   reconnect/retry that verifies the original source bytes and removes staging debris;
+- source size or modification-time drift during copying, which fails without publishing a final
+  file or retaining staging debris;
 - destination-inside-source, overlapping-destination, duplicate-output-plan, linked-folder escape,
   and insufficient-capacity rejection before copying;
 - hidden camera metadata retention while Finder, AppleDouble, Spotlight, filesystem debris, and
@@ -49,18 +51,18 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Build evidence
 
-The 0.3.0 build 14 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 15 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 14.app`
+`/Applications/Vaultline Ingest 0.3 Review 15.app`
 
 Review DMG SHA-256:
 
-`2250d4a47d430b1dbf7d77effa1553e95dc6a47742d4fa42178f43249a300f05`
+`6b955923b9a5ce396465ecf4e3dfe066129980614f986263b6488b0b6b5b851c`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -130,9 +132,9 @@ camera-card and writable ExFAT destination images:
 
 ## Clean-Mac package exercise
 
-The exact build 14 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 15 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 14, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 15, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.
@@ -144,6 +146,16 @@ RED `.RDC` clips are directly selectable as ingest sources. Configurable destina
 their remove control persistently rather than only on pointer hover, with an explicit accessibility
 label and help text. These changes compiled, passed the full suite and static analysis, and are in
 the exact package above; no visible UI-exercise claim is made for them.
+
+## Build 15 safety and configuration corrections
+
+Configured-job creation now preflights the complete folder tree and rejects a regular file occupying
+any configured directory path before creating anything else. A source whose size or modification
+time changes during copying now fails safely before any final media file is published. Team packages
+may leave `parentSubpath` empty when the correct workflow creates the job directly under the selected
+destination. Form-field reorder and removal controls are persistent and accessibility-labeled.
+These paths pass focused regressions, the full native suite, Release static analysis, and the exact
+package checks above; no new visible UI-exercise claim is made for them.
 
 ## Standards correction
 

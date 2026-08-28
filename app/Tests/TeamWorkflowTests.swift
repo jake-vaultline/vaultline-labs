@@ -195,6 +195,24 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertTrue(plan.projectURL?.path.hasSuffix(".prproj") == true)
     }
 
+    func testEmptyParentSubpathCreatesJobDirectlyUnderSelectedDestination() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        var workflow = IngestWorkflowPreset.standard
+        workflow.parentSubpath = ""
+
+        let plan = try ConfiguredJobPlan.make(
+            workflow: workflow,
+            selectedRoot: root,
+            values: .init(fields: ["project": "Launch"], date: fixedDate))
+
+        XCTAssertEqual(plan.parent.standardizedFileURL, root.standardizedFileURL)
+        XCTAssertEqual(plan.jobRoot.deletingLastPathComponent().standardizedFileURL,
+                       root.standardizedFileURL)
+        XCTAssertNoThrow(try ConfiguredJobBuilder.create(plan))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: plan.mediaRoot.path))
+    }
+
     func testBuilderCreatesTreeAndCopiesRealProjectTemplate() throws {
         let root = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -312,6 +330,29 @@ final class TeamWorkflowTests: XCTestCase {
         XCTAssertThrowsError(try ConfiguredJobBuilder.create(plan))
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: outside.appendingPathComponent(plan.jobName).path))
+    }
+
+    func testBuilderRejectsFileAtConfiguredFolderBeforeCreatingAnythingElse() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let values = WorkflowTemplate.Values(fields: ["project": "Launch Film"], date: fixedDate)
+        let plan = try ConfiguredJobPlan.make(
+            workflow: .standard, selectedRoot: root, values: values)
+        let occupiedParent = plan.jobRoot.appendingPathComponent("01_Media", isDirectory: true)
+        try FileManager.default.createDirectory(at: occupiedParent, withIntermediateDirectories: true)
+        let occupied = occupiedParent.appendingPathComponent("Camera")
+        let original = Data("this is a file, not a folder".utf8)
+        try original.write(to: occupied)
+
+        XCTAssertThrowsError(try ConfiguredJobBuilder.create(plan)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("a file already exists"))
+            XCTAssertTrue(error.localizedDescription.contains("Nothing was changed"))
+        }
+        XCTAssertEqual(try Data(contentsOf: occupied), original)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: plan.jobRoot.appendingPathComponent("02_Edit").path))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: plan.jobRoot.appendingPathComponent("03_Exports").path))
     }
 
     private func temporaryDirectory() -> URL {

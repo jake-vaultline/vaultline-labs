@@ -206,11 +206,13 @@ struct OffloadProgress {
 enum OffloadError: LocalizedError {
     case unreadable(String)
     case destinationUnwritable(String)
+    case sourceChanged(String)
 
     var errorDescription: String? {
         switch self {
         case .unreadable(let p):            return "Couldn't read \(p)."
         case .destinationUnwritable(let p): return "Can't write to \(p)."
+        case .sourceChanged(let p):          return "The source changed while \(p) was being copied. No final copy was published; stop recording or writing to the source and try again."
         }
     }
 }
@@ -462,16 +464,32 @@ actor OffloadEngine {
         }
 
         var hasher = StreamingHasher(algorithm)
+        var sourceBytesRead = Int64(0)
 
         while true {
             try Task.checkCancellation()
             guard let chunk = try input.read(upToCount: bufferSize), !chunk.isEmpty else { break }
+            sourceBytesRead += Int64(chunk.count)
             hasher.update(chunk)
             for item in staged { try item.handle.write(contentsOf: chunk) }
             if !staged.isEmpty { onBytes(Int64(chunk.count)) }
             await Task.yield()
         }
         try Task.checkCancellation()
+
+        // A selected folder can still be written by a camera, recorder, or
+        // another process. Never certify a transient partial view as a complete
+        // source file: size drift or a modification-time change invalidates the
+        // staged copies before anything reaches its final media path.
+        let finalSourceAttributes = try? FileManager.default.attributesOfItem(atPath: file.sourcePath)
+        let finalSourceSize = (finalSourceAttributes?[.size] as? NSNumber)?.int64Value
+        let originalModificationDate = sourceAttributes?[.modificationDate] as? Date
+        let finalModificationDate = finalSourceAttributes?[.modificationDate] as? Date
+        guard sourceBytesRead == file.size,
+              finalSourceSize == file.size,
+              originalModificationDate == finalModificationDate else {
+            throw OffloadError.sourceChanged(file.relativePath)
+        }
 
         // Force to disk before claiming anything about it. Verifying a file
         // still sitting in the page cache proves nothing about the drive.

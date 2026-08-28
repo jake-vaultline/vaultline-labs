@@ -11,7 +11,8 @@ Vaultline configures:
 - the form fields, labels, required/sticky behavior, choices, defaults, and stable tokens;
 - one or more workflow presets;
 - job-name templates such as `{date:yyMMdd}_{project}` or `{jobNumber}_{project}`;
-- a fixed parent path under the destination selected by the operator, such as `01 Shoots`;
+- an optional fixed parent path under the destination selected by the operator, such as
+  `01 Shoots`; leave `parentSubpath` empty to create the job directly under the selected destination;
 - the complete relative folder tree and the exact media landing folder;
 - an optional destination-root suggestion;
 - an optional client-supplied `.prproj` template and its derived output name; and
@@ -26,8 +27,10 @@ bespoke source forks, signing, deployment, or ongoing workflow engineering.
 1. Copy `configuration/example-team.json` and change only the team's values.
 2. Keep `schemaVersion` at `1`.
 3. Give every form value used in a template a stable alphanumeric `token`.
-4. Use relative paths only. Absolute paths, `..`, `.`, empty paths, and colon-bearing components fail
-   validation. `destinationRoot`, when present, is the sole optional absolute path.
+4. Use relative paths only. Absolute paths, `..`, `.`, empty folder/media/project paths, and
+   colon-bearing components fail validation. `parentSubpath` alone may be empty to put the job
+   directly under the selected destination. `destinationRoot`, when present, is the sole optional
+   absolute path.
 5. Ensure `mediaFolder` and `projectFolder` exactly name folders in `folders`.
 6. If the team supplies a Premiere template, put its base64-encoded bytes in
    `projectTemplateBase64` and set `projectNameTemplate` to a `.prproj` name. This keeps the package
