@@ -13,12 +13,14 @@
 		32757AFBC3399B1C2EA38519 /* OffloadEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */; };
 		3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6076C926FFBC6E541DD27B8 /* Theme.swift */; };
 		3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */; };
+		3B022F5B75642308C88AD65B /* StickyFormAnswers.swift in Sources */ = {isa = PBXBuildFile; fileRef = E580BB5F37144C1DAABDE222 /* StickyFormAnswers.swift */; };
 		46196867D65F13F5DBCA12F3 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53DBECC7C3122C903D11E446 /* App.swift */; };
 		487D190603688A4B6B174C9D /* Bookmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B19D5BFA7D29FC4EECA2E1 /* Bookmarks.swift */; };
 		628AA6B8B4E4ED62E70B67BD /* JobSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38572BDEE3E7E7E61325CF86 /* JobSheet.swift */; };
 		62ACD351F5311D0DD0F2A2C3 /* FormViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397F9643CBE44140DD98B6CD /* FormViews.swift */; };
 		668F9E7D5B98417229697BEA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2DC857F29E9C077BB366E1C /* Assets.xcassets */; };
 		741C74366F4353C8012B0BB1 /* IngestForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFCB969342AC7DA5E8B2AB2 /* IngestForm.swift */; };
+		8D434D0117865625988FDE86 /* StickyFormAnswersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 825765AE79CDD473711F0C6A /* StickyFormAnswersTests.swift */; };
 		910A3442757731973467C56D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C570AAEF5E04182780B6B4C /* AppState.swift */; };
 		AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1696B1EC98B3EE707114CF /* SetupWizard.swift */; };
 		CC8A5E4DF84067DF2F4EA8FA /* Checksums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC9F0F2D3F92CB526913833 /* Checksums.swift */; };
@@ -55,6 +57,7 @@
 		53DBECC7C3122C903D11E446 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamWorkflowTests.swift; sourceTree = "<group>"; };
 		80843EAD4E3146D26CFE37C4 /* VaultlineIngest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VaultlineIngest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		825765AE79CDD473711F0C6A /* StickyFormAnswersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyFormAnswersTests.swift; sourceTree = "<group>"; };
 		853C340DC6E6BDE4BC416F73 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8E4313427FE05C18F5BD54DE /* VaultlineIngestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VaultlineIngestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F1696B1EC98B3EE707114CF /* SetupWizard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWizard.swift; sourceTree = "<group>"; };
@@ -62,6 +65,7 @@
 		BCE35658D613478FB3A539F8 /* MHLWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MHLWriter.swift; sourceTree = "<group>"; };
 		C90AA555146EDD3B7B1252AC /* XXHash64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XXHash64.swift; sourceTree = "<group>"; };
 		C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OffloadEngineTests.swift; sourceTree = "<group>"; };
+		E580BB5F37144C1DAABDE222 /* StickyFormAnswers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyFormAnswers.swift; sourceTree = "<group>"; };
 		E6076C926FFBC6E541DD27B8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		E78A00530EE13C5692F84514 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -103,6 +107,7 @@
 				06F006E19AEDFF32901C1282 /* OffloadEngine.swift */,
 				853C340DC6E6BDE4BC416F73 /* SettingsView.swift */,
 				8F1696B1EC98B3EE707114CF /* SetupWizard.swift */,
+				E580BB5F37144C1DAABDE222 /* StickyFormAnswers.swift */,
 				4495241CA9EDD13B21312D6F /* TeamWorkflow.swift */,
 				E6076C926FFBC6E541DD27B8 /* Theme.swift */,
 				C90AA555146EDD3B7B1252AC /* XXHash64.swift */,
@@ -123,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				C97D42B6A4EE329EC3D14F96 /* OffloadEngineTests.swift */,
+				825765AE79CDD473711F0C6A /* StickyFormAnswersTests.swift */,
 				64ACC50C0096689817B0DA11 /* TeamWorkflowTests.swift */,
 			);
 			path = Tests;
@@ -222,6 +228,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				32757AFBC3399B1C2EA38519 /* OffloadEngineTests.swift in Sources */,
+				8D434D0117865625988FDE86 /* StickyFormAnswersTests.swift in Sources */,
 				0C5593A652F1D1FC48BF4900 /* TeamWorkflowTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -245,6 +252,7 @@
 				E44DBD77B5AAB81A05BA9004 /* OffloadEngine.swift in Sources */,
 				CD0095E4466AC210A7F872AF /* SettingsView.swift in Sources */,
 				AD22A9B3373A437BACF97D67 /* SetupWizard.swift in Sources */,
+				3B022F5B75642308C88AD65B /* StickyFormAnswers.swift in Sources */,
 				3AB79B525E36BE631A647991 /* TeamWorkflow.swift in Sources */,
 				3A533BD2D2D2D1B735155D41 /* Theme.swift in Sources */,
 				005E2BC1DB7896470B60FB00 /* XXHash64.swift in Sources */,
@@ -291,7 +299,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -458,7 +466,7 @@
 				CODE_SIGN_IDENTITY = F0C4C075498F5F67CBB94495DB0115D3DE89E835;
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_TEAM = 57U2N6J9ZS;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;

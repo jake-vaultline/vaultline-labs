@@ -14,7 +14,7 @@ update checker, or network client. The app sandbox has no network client or serv
 
 ## Automated evidence
 
-`xcodebuild test` passed 33 of 33 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
+`xcodebuild test` passed 36 of 36 native tests on macOS 26.3.1 / Apple Silicon. Coverage includes:
 
 - portable configuration validation, import/export, defaults, tokens, dates, safe paths, and real
   Premiere-template behavior;
@@ -31,22 +31,25 @@ update checker, or network client. The app sandbox has no network client or serv
   source symlinks are excluded;
 - source modification-date preservation and atomic, no-replace manifest/record publication;
 - streamed xxHash64, MD5, and SHA-1 canonical vectors; and
-- ASC MHL destination paths, selected hash algorithm, transfer semantics, and resumed-file hashes.
+- ASC MHL destination paths, selected hash algorithm, transfer semantics, and resumed-file hashes;
+- team-and-form-namespaced persistence for valid fields explicitly configured to carry over; and
+- rejection of stale automatic dates, non-sticky card fields, invalid choices, blank values, and
+  answers from another team's configuration during restoration.
 
 ## Build evidence
 
-The 0.3.0 build 6 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
+The 0.3.0 build 7 Release configuration built as a universal `arm64` + `x86_64` macOS app. The
 review package is ad-hoc signed, passes strict `codesign` verification, and is sandboxed. Its only
 entitlements are the sandbox, user-selected read/write, and app-scoped bookmarks; it has no network
 entitlement or development-only `get-task-allow` entitlement.
 
 Installed review build:
 
-`/Applications/Vaultline Ingest 0.3 Review 6.app`
+`/Applications/Vaultline Ingest 0.3 Review 7.app`
 
 Review DMG SHA-256:
 
-`7d3d907dab9cf776166f7e1f9851a2e9f00ff74064f86cadd03ae711051aadfb`
+`1198b5c6a49db72c57f26df44865cacd6a03c493dada0f2279c83bfa17f0919e`
 
 This is a local review artifact, not a notarized or public release.
 
@@ -81,12 +84,18 @@ camera-card and writable ExFAT destination images:
     resolution; the subsequent run again verified the existing files without rewrite.
 13. Replacing one disposable destination file with different bytes produced a visible name clash;
     the app reported the exact path and left the conflicting bytes unchanged.
+14. The exact build 7 package ran the same card against the existing verified destination and
+    reported three of three files already matched with zero KB copied. After quitting and
+    relaunching, it restored shooter `Jordan Lee`, location `Portland Studio`, subject
+    `Launch Film B`, camera `Sony FX6`, the automatic current date, and the exact destination.
+    The non-sticky card/reel field remained blank and Start Ingest was enabled without retyping the
+    brief.
 
 ## Clean-Mac package exercise
 
-The exact build 6 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
+The exact build 7 DMG was copied to dedicated test device `VL-Mini-02` (macOS 26.6.2, Apple
 Silicon). Its SHA-256 matched, the app installed outside the DMG, passed strict signature
-verification, was confirmed universal, reported version 0.3.0 build 6, exposed only the three
+verification, was confirmed universal, reported version 0.3.0 build 7, exposed only the three
 intended entitlements, and launched as a running process. The machine had no physical camera card
 or external destination attached. Its existing GUI session was locked against remote input, so a
 clean-Mac UI offload is `not_run`, not a passing claim.

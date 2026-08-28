@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     let configStore: ConfigStore
 
     private var bag = Set<AnyCancellable>()
+    private var formNamespace: String
 
     /// SwiftUI does **not** observe nested ObservableObjects. A view watching
     /// `AppState` sees nothing when `configStore` publishes. Forward its changes
@@ -19,9 +20,22 @@ final class AppState: ObservableObject {
     init() {
         let loadedConfig = ConfigStore()
         configStore = loadedConfig
+        formNamespace = StickyFormAnswers.namespace(for: loadedConfig.config)
+        formAnswers = StickyFormAnswers.load(config: loadedConfig.config)
         configStore.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &bag)
+        configStore.$config
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] config in
+                guard let self else { return }
+                let namespace = StickyFormAnswers.namespace(for: config)
+                guard namespace != self.formNamespace else { return }
+                self.formNamespace = namespace
+                self.formAnswers = StickyFormAnswers.load(config: config)
+            }
             .store(in: &bag)
     }
 
@@ -182,6 +196,11 @@ final class AppState: ObservableObject {
             message = "No files were copied. \(capacityIssue)"
             return
         }
+
+        // Save the operator's configured carry-over fields before the first
+        // source byte is read, so a crash or unplug during this card does not
+        // erase the brief needed to resume it safely.
+        StickyFormAnswers.save(formAnswers, config: config)
 
         isRunning = true
         message = nil
