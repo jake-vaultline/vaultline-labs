@@ -7,3 +7,8 @@ xcuserdata/
 *.xcuserstate
 
 .DS_Store
+
+# Release artifacts. Distribution is GitHub Releases; the DMG does not
+# belong in the repository. One got committed in d25343f and another in
+# b201fb9 before this line existed.
+download/*.dmg
