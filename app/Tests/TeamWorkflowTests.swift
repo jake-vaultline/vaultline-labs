@@ -166,6 +166,38 @@ final class TeamWorkflowTests: XCTestCase {
                        IngestWorkflowPreset.standard.folders)
     }
 
+    func testFulfillmentGeneratorProducesAnImportableProfile() throws {
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ingest-fulfillment-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: output) }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [
+            repository.appendingPathComponent("fulfillment/ingest_fulfillment.py").path,
+            "fulfill",
+            repository.appendingPathComponent("fulfillment/example-request.json").path,
+            output.path
+        ]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let profileURL = output.appendingPathComponent("Vaultline-Ingest-Team-Profile.json")
+        let package = try JSONDecoder().decode(
+            TeamConfigurationPackage.self, from: Data(contentsOf: profileURL)).validated()
+        XCTAssertEqual(package.team.teamName, "Example Media Team")
+        XCTAssertEqual(package.naming.fileTemplate, "{date:yyMMdd}_{code}_{reel}_{seq:0000}")
+        XCTAssertEqual(Set(package.form.fields.compactMap(\.token)),
+                       Set(["project", "shooter", "camera", "reel"]))
+    }
+
     func testDateAndTeamTokensRenderWithoutRetypingDate() throws {
         let values = WorkflowTemplate.Values(fields: ["jobNumber": "184", "project": "Launch Film"], date: fixedDate)
         let output = try WorkflowTemplate.render("{date:yyyyMMdd}_{jobNumber}_{project}", values: values)

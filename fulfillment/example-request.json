@@ -4,6 +4,13 @@
   "openQuestions": [],
   "resolved": {
     "teamName": "Example Media Team",
+    "copyLocations": 2,
+    "naming": {
+      "fileTemplate":"{date:yyMMdd}_{code}_{reel}_{seq:0000}",
+      "folderTemplate":"",
+      "separator":"_",
+      "renameOnIngest":false
+    },
     "fields": [
       {"token":"project","label":"Project","required":true,"sticky":true},
       {"token":"shooter","label":"Shooter","required":true,"sticky":true},
