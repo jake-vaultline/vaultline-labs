@@ -145,11 +145,9 @@ enum Exporter {
         let worker = Task { @MainActor in
             do {
                 let result = try await work()
-                if box.resume(with: .success(result)) {
-                    // We won the race; timer will be cancelled below
-                }
+                _ = box.resume(with: .success(result))
             } catch {
-                box.resume(with: .failure(error))
+                _ = box.resume(with: .failure(error))
             }
         }
 
@@ -170,30 +168,59 @@ enum Exporter {
     }
 
     /// A helper that ensures a continuation is resumed exactly once.
-    /// The first `resume(with:)` call returns true and delivers the result;
-    /// subsequent calls return false and do nothing.
+    /// Handles the race where resume(with:) might fire before wait() stores the
+    /// continuation (e.g., zero timeout). The pending result is stored and
+    /// delivered when the continuation is registered.
     private final class ResumeOnce<T>: @unchecked Sendable {
         private let lock = NSLock()
         private var continuation: CheckedContinuation<T, Error>?
+        private var pending: Result<T, Error>?
         private var resumed = false
 
         func wait() async throws -> T {
             try await withCheckedThrowingContinuation { c in
-                self.lock.withLock {
+                var deliverNow: Result<T, Error>?
+                lock.lock()
+                // Check if a result was already set while we were waiting
+                if let result = pending {
+                    deliverNow = result
+                    pending = nil
+                } else {
+                    // Store the continuation; resume will call it later
                     self.continuation = c
+                }
+                lock.unlock()
+                // Deliver outside the lock to avoid holding it during resume
+                if let result = deliverNow {
+                    c.resume(with: result)
                 }
             }
         }
 
+        @discardableResult
         func resume(with result: Result<T, Error>) -> Bool {
-            lock.withLock {
-                guard !resumed else { return false }
+            var cont: CheckedContinuation<T, Error>?
+            var shouldDeliver = false
+            var didWin = false
+            lock.lock()
+            if !resumed {
+                didWin = true
                 resumed = true
-                let cont = continuation
+                cont = continuation
                 continuation = nil
-                cont?.resume(with: result)
-                return true
+                // If no continuation yet, store the result for wait() to pick up
+                if cont == nil {
+                    pending = result
+                } else {
+                    shouldDeliver = true
+                }
             }
+            lock.unlock()
+            // Deliver outside the lock
+            if shouldDeliver {
+                cont?.resume(with: result)
+            }
+            return didWin
         }
     }
 

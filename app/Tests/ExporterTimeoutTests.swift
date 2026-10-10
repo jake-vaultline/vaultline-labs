@@ -54,6 +54,47 @@ final class ExporterTimeoutTests: XCTestCase {
             // Expected
         }
     }
+
+    /// Test that a zero timeout fires immediately, even if work sleeps.
+    /// This tests the race condition where the timer fires before wait() registers
+    /// the continuation. With zero timeout, the timer should fire almost instantly
+    /// and interrupt any work, even if it's trying to sleep.
+    func testZeroTimeoutFiresImmediately() async throws {
+        let clock = ContinuousClock()
+        let startTime = clock.now
+
+        do {
+            _ = try await Exporter.withTimeout(.zero) {
+                // Try to sleep for 1 second, but should be interrupted by timeout
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                return Data()
+            }
+            XCTFail("Expected timeout error but got success")
+        } catch Exporter.ExportError.pdfTimedOut {
+            // Expected
+            let elapsed = clock.now - startTime
+            XCTAssertLessThan(elapsed.timeInterval, 2.0,
+                            "zero timeout took too long: \(elapsed.timeInterval)s")
+        }
+    }
+
+    /// Test that an immediate work error propagates with a reasonable timeout.
+    /// With immediate error (synchronous throw at the closure's entry), the work
+    /// error should propagate before the timeout fires.
+    func testImmediateWorkErrorPropagates() async throws {
+        enum TestError: Error {
+            case immediate
+        }
+
+        do {
+            _ = try await Exporter.withTimeout(.seconds(1)) {
+                throw TestError.immediate
+            }
+            XCTFail("Expected error to be thrown")
+        } catch TestError.immediate {
+            // Expected - the work error propagates
+        }
+    }
 }
 
 extension Duration {
