@@ -1,8 +1,8 @@
 # Vaultline Labs Drive Inspector — app
 
-**v0.1.0 — signed, notarized, and shipping.** Feature-complete: filesystem walk, media
-probe (codecs/resolutions/cameras), duplicate detection, and HTML/PDF/CSV report
-export, all in one no-network, sandboxed app. See `../STATUS.md` for what's still open
+**v0.3.2 — signed, notarized, and shipping.** Feature-complete: filesystem walk, media
+probe (codecs/resolutions/cameras), duplicate detection, and HTML/CSV report
+export (print the HTML report to PDF from a browser if needed), all in one no-network, sandboxed app. See `../STATUS.md` for what's still open
 before wider testing.
 
 ## Build
