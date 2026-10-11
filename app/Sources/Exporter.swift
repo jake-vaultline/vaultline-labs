@@ -138,17 +138,89 @@ enum Exporter {
     /// firing at 90 seconds against the real stall, so a hung render surfaces
     /// an error instead of leaving the export button disabled until the app is
     /// force quit, which is how this failure first presented.
-    private static func withTimeout(_ limit: Duration,
-                                    _ work: @escaping @Sendable () async throws -> Data) async throws -> Data {
-        try await withThrowingTaskGroup(of: Data.self) { group in
-            group.addTask { try await work() }
-            group.addTask {
-                try await Task.sleep(for: limit)
-                throw ExportError.pdfTimedOut
+    static func withTimeout(_ limit: Duration,
+                           _ work: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        let box = ResumeOnce<Data>()
+
+        let worker = Task { @MainActor in
+            do {
+                let result = try await work()
+                _ = box.resume(with: .success(result))
+            } catch {
+                _ = box.resume(with: .failure(error))
             }
-            defer { group.cancelAll() }
-            guard let first = try await group.next() else { throw ExportError.pdfRenderFailed }
-            return first
+        }
+
+        let timer = Task {
+            try? await Task.sleep(for: limit)
+            if box.resume(with: .failure(ExportError.pdfTimedOut)) {
+                // We won the race; cancel the worker
+                worker.cancel()
+            }
+        }
+
+        defer {
+            worker.cancel()
+            timer.cancel()
+        }
+
+        return try await box.wait()
+    }
+
+    /// A helper that ensures a continuation is resumed exactly once.
+    /// Handles the race where resume(with:) might fire before wait() stores the
+    /// continuation (e.g., zero timeout). The pending result is stored and
+    /// delivered when the continuation is registered.
+    private final class ResumeOnce<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<T, Error>?
+        private var pending: Result<T, Error>?
+        private var resumed = false
+
+        func wait() async throws -> T {
+            try await withCheckedThrowingContinuation { c in
+                var deliverNow: Result<T, Error>?
+                lock.lock()
+                // Check if a result was already set while we were waiting
+                if let result = pending {
+                    deliverNow = result
+                    pending = nil
+                } else {
+                    // Store the continuation; resume will call it later
+                    self.continuation = c
+                }
+                lock.unlock()
+                // Deliver outside the lock to avoid holding it during resume
+                if let result = deliverNow {
+                    c.resume(with: result)
+                }
+            }
+        }
+
+        @discardableResult
+        func resume(with result: Result<T, Error>) -> Bool {
+            var cont: CheckedContinuation<T, Error>?
+            var shouldDeliver = false
+            var didWin = false
+            lock.lock()
+            if !resumed {
+                didWin = true
+                resumed = true
+                cont = continuation
+                continuation = nil
+                // If no continuation yet, store the result for wait() to pick up
+                if cont == nil {
+                    pending = result
+                } else {
+                    shouldDeliver = true
+                }
+            }
+            lock.unlock()
+            // Deliver outside the lock
+            if shouldDeliver {
+                cont?.resume(with: result)
+            }
+            return didWin
         }
     }
 
