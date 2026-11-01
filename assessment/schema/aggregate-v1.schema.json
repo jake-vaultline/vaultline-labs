@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Archive Assessment aggregate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "started_at", "finished_at", "status", "policy", "roots", "mounts", "limitations", "aggregates", "coverage"],
+  "properties": {
+    "schema_version": {"const": "archive-assessment-v1"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["complete", "partial", "cancelled"]},
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_files", "max_depth", "max_seconds", "metadata_rate", "exclusion_patterns", "hidden_files", "system_trees", "links", "packages", "mounts", "workers", "rate_unit", "metadata_provider"],
+      "properties": {
+        "max_files": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "max_depth": {"type": "integer", "minimum": 1, "maximum": 64},
+        "max_seconds": {"type": "number", "exclusiveMinimum": 0, "maximum": 1800},
+        "metadata_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 10000},
+        "exclusion_patterns": {"type": "integer", "minimum": 0, "maximum": 100},
+        "hidden_files": {"const": "included"}, "system_trees": {"const": "excluded"},
+        "links": {"const": "never-follow"}, "packages": {"const": "contents-counted-once"},
+        "mounts": {"const": "no-descent"}, "workers": {"const": 1},
+        "rate_unit": {"const": "enumerated_entries_per_second"},
+        "metadata_provider": {"const": "may perform its own metadata IO"}
+      }
+    },
+    "roots": {"type": "array", "maxItems": 100, "items": {
+      "type": "object", "additionalProperties": false, "required": ["alias", "status"],
+      "properties": {"alias": {"type": "string", "pattern": "^Root [0-9]+$"}, "status": {"enum": ["complete", "partial", "unobserved"]}, "mount_alias": {"type": ["string", "null"], "pattern": "^Mount [0-9]+$"}}
+    }},
+    "mounts": {"type": "array", "maxItems": 100, "items": {
+      "type": "object", "additionalProperties": false, "required": ["alias", "total_bytes", "available_bytes", "as_of"],
+      "properties": {"alias": {"type": "string", "pattern": "^Mount [0-9]+$"}, "total_bytes": {"$ref": "#/$defs/optionalCount"}, "available_bytes": {"$ref": "#/$defs/optionalCount"}, "as_of": {"type": "string", "format": "date-time"}}
+    }},
+    "limitations": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 256}},
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unseen_files", "unseen_bytes", "observed_regular_entries", "errors", "exclusions", "content_reads", "codec_sample", "identities_unknown"],
+      "properties": {"unseen_files": {"type": "null"}, "unseen_bytes": {"type": "null"}, "observed_regular_entries": {"$ref": "#/$defs/count"}, "errors": {"$ref": "#/$defs/count"}, "exclusions": {"$ref": "#/$defs/count"}, "content_reads": {"const": 0}, "codec_sample": {"type": "null"}, "identities_unknown": {"$ref": "#/$defs/count"}}
+    },
+    "aggregates": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path_entries", "logical_bytes", "directories", "project_artifacts", "project_packages", "distinct_objects", "distinct_logical_bytes", "allocated_bytes", "allocated_objects", "identity_unknown", "placeholders", "minimum_mtime", "maximum_mtime", "mean_file_bytes", "extensions", "extension_bytes", "categories", "category_bytes", "size_bins", "depth_bins", "token_shapes", "layouts", "errors", "skipped"],
+      "properties": {
+        "path_entries": {"$ref": "#/$defs/count"}, "logical_bytes": {"$ref": "#/$defs/count"}, "directories": {"$ref": "#/$defs/count"}, "project_artifacts": {"$ref": "#/$defs/count"}, "project_packages": {"$ref": "#/$defs/count"},
+        "distinct_objects": {"$ref": "#/$defs/optionalCount"}, "distinct_logical_bytes": {"$ref": "#/$defs/optionalCount"}, "allocated_bytes": {"$ref": "#/$defs/optionalCount"}, "allocated_objects": {"$ref": "#/$defs/count"}, "identity_unknown": {"$ref": "#/$defs/count"}, "placeholders": {"$ref": "#/$defs/count"},
+        "minimum_mtime": {"type": ["string", "null"], "format": "date-time"}, "maximum_mtime": {"type": ["string", "null"], "format": "date-time"}, "mean_file_bytes": {"type": ["number", "null"], "minimum": 0},
+        "extensions": {"$ref": "#/$defs/histogram"}, "extension_bytes": {"$ref": "#/$defs/histogram"}, "categories": {"$ref": "#/$defs/histogram"}, "category_bytes": {"$ref": "#/$defs/histogram"}, "size_bins": {"$ref": "#/$defs/histogram"}, "depth_bins": {"$ref": "#/$defs/histogram"}, "errors": {"$ref": "#/$defs/histogram"}, "skipped": {"$ref": "#/$defs/histogram"}, "token_shapes": {"$ref": "#/$defs/patterns"}, "layouts": {"$ref": "#/$defs/patterns"}
+      }
+    }
+  },
+  "$defs": {
+    "count": {"type": "integer", "minimum": 0},
+    "optionalCount": {"type": ["integer", "null"], "minimum": 0},
+    "histogram": {"type": "object", "maxProperties": 129, "additionalProperties": {"$ref": "#/$defs/count"}},
+    "patterns": {"type": "object", "additionalProperties": false, "required": ["observed", "suppressed", "patterns", "overflow"], "properties": {"observed": {"$ref": "#/$defs/count"}, "suppressed": {"$ref": "#/$defs/count"}, "overflow": {"$ref": "#/$defs/count"}, "patterns": {"$ref": "#/$defs/histogram"}}}
+  }
+}
