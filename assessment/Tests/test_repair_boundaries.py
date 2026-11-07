@@ -22,21 +22,15 @@ class RepairBoundaries(unittest.TestCase):
             source.mkdir()
             (source / "tiny.mov").write_bytes(b"abc")
             output = base / "raced"
-            original = os.mkdir
-            triggered = []
-            def race(name, *args, **kwargs):
-                result = original(name, *args, **kwargs)
-                if name == "raced" and kwargs.get("dir_fd") is not None:
-                    output.rename(base / "displaced")
-                    source.rename(output)
-                    triggered.append(True)
-                return result
-            with patch.object(m.os, "mkdir", side_effect=race):
-                code = m.main(["assess", "--root", str(source), "--output", str(output), "--metadata-rate", "10000"])
-            self.assertTrue(triggered)
-            self.assertEqual(sorted(p.name for p in output.iterdir()), ["tiny.mov"], "exports written to original source")
-            self.assertEqual(code, 1)
-            self.assertEqual((output / "tiny.mov").read_bytes(), b"abc")
+            # The old creation/open race is now unreachable from assess.
+            with patch.object(m, "output_dir", side_effect=AssertionError("scanner created output")), \
+                 patch.object(m, "write", side_effect=AssertionError("scanner wrote output")), \
+                 patch.object(m, "stream_only"), patch.object(m.sys, "stdout"):
+                code = m.main(["assess", "--root", str(source), "--metadata-rate", "10000"])
+            self.assertEqual(sorted(p.name for p in source.iterdir()), ["tiny.mov"])
+            self.assertEqual(code, 0)
+            self.assertFalse(output.exists())
+            self.assertEqual((source / "tiny.mov").read_bytes(), b"abc")
 
     def child(self, script, checkpoint, output):
         proc = subprocess.Popen([sys.executable, "-B", "-c", script, str(SOURCE), str(checkpoint), str(output)],

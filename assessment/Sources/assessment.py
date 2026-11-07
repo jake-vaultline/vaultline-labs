@@ -6,6 +6,9 @@ is imported: its hash/probe/store/transport sequence is intentionally excluded.
 """
 from __future__ import annotations
 
+import sys
+sys.dont_write_bytecode = True
+
 import argparse
 import ctypes
 from collections import Counter
@@ -13,11 +16,12 @@ from datetime import datetime, timezone
 import errno
 import fnmatch
 import json
+import math
 import os
+import re
 from pathlib import Path
 import signal
 import stat
-import sys
 import time
 import uuid
 
@@ -33,6 +37,14 @@ SYSTEM = {".Spotlight-V100", ".Trashes", ".fseventsd"}
 LIMIT = 128
 FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 OUTPUTS = {}
+LIMITATIONS = [
+    "Observation over time, not an atomic snapshot.",
+    "Unknown unseen bytes and files; partial totals are lower bounds.",
+    "Visible mounted capacity is not physical RAID/NAS topology.",
+    "No content, codecs, linked dependencies or backup assurance assessed.",
+    "OS/provider metadata IO may occur; no hydration requested.",
+    "Kernel filesystem calls may outlive cancellation; no NAS abort guarantee.",
+    "Interrupted scans restart explicitly; no private checkpoint is created."]
 
 
 def now():
@@ -170,14 +182,7 @@ def blank():
 def run(roots, p, cancelled=lambda: False, progress=lambda x: None, hook=lambda *a: None):
     start = time.monotonic()
     report = dict(schema_version=VERSION, run_id=str(uuid.uuid4()), started_at=now(),
-                  status="complete", policy=public_policy(p), roots=[], mounts=[], limitations=[
-                      "Observation over time, not an atomic snapshot.",
-                      "Unknown unseen bytes and files; partial totals are lower bounds.",
-                      "Visible mounted capacity is not physical RAID/NAS topology.",
-                      "No content, codecs, linked dependencies or backup assurance assessed.",
-                      "OS/provider metadata IO may occur; no hydration requested.",
-                      "Kernel filesystem calls may outlive cancellation; no NAS abort guarantee.",
-                      "Resume reconciles by fully rescanning, replacing prior aggregates."])
+                  status="complete", policy=public_policy(p), roots=[], mounts=[], limitations=list(LIMITATIONS))
     agg = blank()
     seen = set()
     mounts = {}
@@ -467,7 +472,7 @@ def markdown(r):
         "", "## Coverage and policy", "", "```json", json.dumps({"roots": r['roots'], "coverage": r['coverage'], "errors": a['errors'], "skipped": a['skipped'], "policy": r['policy']}, indent=2), "```",
         "", "## Limits", "", *["- " + x for x in r['limitations']],
         "", "Counts and normalized patterns can still be sensitive. Review before voluntarily sharing.",
-        "Keep private-checkpoint.json local. No upload or form submission occurred.", ""])
+        "No private checkpoint, upload or form submission was created.", ""])
 
 
 def outside_source_ancestry(fd, source_ids):
@@ -489,13 +494,17 @@ def outside_source_ancestry(fd, source_ids):
         os.close(current)
 
 
-def output_dir(path, roots):
+def output_dir(path, roots, require_private=False):
     path = os.path.abspath(path)
     if any(inside(root, path) or inside(path, root) for root, _ in roots):
         raise ValueError("output overlaps assessed roots")
     parent, name = os.path.split(path)
     fd = open_dir(parent)
     try:
+        if require_private:
+            info = os.fstat(fd)
+            if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise ValueError("export parent must be owner-private")
         # Capture selected source identities BEFORE mkdir/open. An attacker
         # substituting the source at the creation/open seam cannot redefine the
         # expected output identity to that source, as the old code did.
@@ -592,21 +601,167 @@ def read_checkpoint(path, cancelled):
         os.close(parent)
 
 
+MAX_REPORT_BYTES = 16 * 1024 * 1024
+
+
+def stream_only(stream):
+    """Refuse direct file/device sinks before traversal or private diagnostics.
+
+    A caller may deliberately pipe the redacted stream to a separate exporter.
+    Shell redirection happens before Python starts and cannot be undone here;
+    rejecting its regular descriptor prevents the scanner writing report bytes.
+    """
+    mode = os.fstat(stream.fileno()).st_mode
+    if not (stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode) or stream.isatty()):
+        raise ValueError("scanner requires a terminal or pipe")
+
+
+def emit_report(report, stream):
+    stream_only(stream)
+    text = json.dumps(report, sort_keys=True, allow_nan=False) + "\n"
+    if len(text.encode("utf-8")) > MAX_REPORT_BYTES:
+        raise ValueError("report budget exceeded")
+    stream.write(text)
+    stream.flush()
+
+
+def validate_report(report):
+    """Validate the closed aggregate schema subset, never a private checkpoint."""
+    schema = json.loads((Path(__file__).resolve().parents[1] / "schema" /
+                         "aggregate-v1.schema.json").read_text())
+    def validate(value, rule):
+        if "$ref" in rule:
+            rule = schema["$defs"][rule["$ref"].split("/")[-1]]
+        kinds = rule.get("type", [])
+        kinds = [kinds] if isinstance(kinds, str) else kinds
+        types = {"object": (dict,), "array": (list,), "integer": (int,),
+                 "number": (int, float), "string": (str,), "null": (type(None),)}
+        if kinds and not any(type(value) in types[kind] for kind in kinds):
+            raise ValueError("aggregate type mismatch")
+        if "const" in rule and (type(value) is not type(rule["const"]) or value != rule["const"]):
+            raise ValueError("aggregate constant mismatch")
+        if "enum" in rule and value not in rule["enum"]:
+            raise ValueError("aggregate enum mismatch")
+        if isinstance(value, dict):
+            props = rule.get("properties", {})
+            if not set(rule.get("required", [])) <= set(value):
+                raise ValueError("missing aggregate fields")
+            if rule.get("additionalProperties") is False and set(value) - set(props):
+                raise ValueError("unknown aggregate fields")
+            if len(value) > rule.get("maxProperties", len(value)):
+                raise ValueError("aggregate map budget exceeded")
+            for key, item in value.items():
+                child = props.get(key, rule.get("additionalProperties", {}))
+                if isinstance(child, dict):
+                    validate(item, child)
+        elif isinstance(value, list):
+            if len(value) > rule.get("maxItems", len(value)):
+                raise ValueError("aggregate list budget exceeded")
+            for item in value:
+                validate(item, rule.get("items", {}))
+        elif isinstance(value, str):
+            if len(value) > rule.get("maxLength", len(value)):
+                raise ValueError("aggregate string budget exceeded")
+            if "pattern" in rule and not re.search(rule["pattern"], value):
+                raise ValueError("aggregate pattern mismatch")
+            if rule.get("format") == "date-time":
+                datetime.fromisoformat(value)
+            if rule.get("format") == "uuid":
+                uuid.UUID(value)
+        elif type(value) in (int, float):
+            if type(value) is float and not math.isfinite(value):
+                raise ValueError("nonfinite aggregate number")
+            if not rule.get("minimum", value) <= value <= rule.get("maximum", value):
+                raise ValueError("aggregate count out of bounds")
+            if "exclusiveMinimum" in rule and value <= rule["exclusiveMinimum"]:
+                raise ValueError("aggregate count out of bounds")
+    validate(report, schema)
+    suggestions(report)  # Semantic vocabulary and normalized alias checks.
+    if report["limitations"] != LIMITATIONS:
+        raise ValueError("unknown report limitations")
+    aggregates = report["aggregates"]
+    vocabularies = {
+        "extensions": KNOWN | {"other", "none", "overflow"},
+        "extension_bytes": KNOWN | {"other", "none", "overflow"},
+        "categories": {"probable_video", "probable_audio", "probable_photo", "project_artifact", "other"},
+        "category_bytes": {"probable_video", "probable_audio", "probable_photo", "project_artifact", "other"},
+        "size_bins": {"zero", "lt1KiB", "lt1MiB", "lt1GiB", "ge1GiB"},
+        "depth_bins": {str(n) for n in range(1, 65)} | {"overflow"},
+        "errors": {"permission", "vanished", "disconnected", "io", "replacement", "metadata_failure", "capacity_unknown"},
+        "skipped": {"excluded", "link", "mount", "depth_limit", "special"},
+    }
+    if any(set(aggregates[key]) - vocabulary for key, vocabulary in vocabularies.items()):
+        raise ValueError("unknown aggregate vocabulary")
+    return report
+
+
+def read_report(stream):
+    raw = stream.read(MAX_REPORT_BYTES + 1)
+    if len(raw.encode("utf-8")) > MAX_REPORT_BYTES:
+        raise ValueError("aggregate input budget exceeded")
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate aggregate field")
+            result[key] = value
+        return result
+    def nonfinite(_):
+        raise ValueError("nonfinite aggregate number")
+    return validate_report(json.loads(raw, object_pairs_hook=pairs, parse_constant=nonfinite))
+
+
+def export_report(report, path):
+    """Explicit output-writing operation, separate from read-only assessment.
+
+    The caller authorizes this destination. It is not scanner confinement:
+    another process with the same user's rights can relocate a same-filesystem
+    destination. No source paths, exclusions or private checkpoint are exported.
+    """
+    validate_report(report)
+    fd = output_dir(path, [], require_private=True)
+    try:
+        write(fd, "assessment.json", report)
+        write(fd, "assessment.md", markdown(report))
+        write(fd, "suggestions.json", suggestions(report))
+    finally:
+        OUTPUTS.pop(fd, None)
+        os.close(fd)
+
+
+class SafeParser(argparse.ArgumentParser):
+    def error(self, message):
+        # argparse's default embeds arbitrary command-line values in diagnostics.
+        raise ValueError("invalid command line")
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Explicit-root metadata assessment; no content reads or uploads")
+    # Even parser errors/help must not write through a redirected source FD.
+    try:
+        stream_only(sys.stdout)
+        stream_only(sys.stderr)
+    except (OSError, ValueError, AttributeError):
+        return 1
+    parser = SafeParser(description="Read-only metadata scanner; separate explicit aggregate exporter")
     subs = parser.add_subparsers(dest="command", required=True)
-    assess = subs.add_parser("assess")
+    assess = subs.add_parser("assess", help="emit aggregate JSON to a terminal or pipe; creates no files")
     assess.add_argument("--root", action="append", required=True)
-    assess.add_argument("--output", required=True)
+    assess.add_argument("--output", help=argparse.SUPPRESS)  # Fail closed for old invocations.
     assess.add_argument("--max-files", type=int, default=1000000)
     assess.add_argument("--max-depth", type=int, default=64)
     assess.add_argument("--max-seconds", type=float, default=1800)
     assess.add_argument("--metadata-rate", type=float, default=100)
     assess.add_argument("--exclude", action="append", default=[])
-    resume = subs.add_parser("resume")
+    export = subs.add_parser("export", help="read aggregate JSON from stdin and explicitly write a fresh private destination")
+    export.add_argument("--output", required=True)
+    resume = subs.add_parser("resume", help="retired: refuses without opening recovery input")
     resume.add_argument("--checkpoint", required=True)
-    resume.add_argument("--output", required=True, help="new directory; prior outputs preserved")
-    args = parser.parse_args(argv)
+    resume.add_argument("--output", required=True)
+    try:
+        args = parser.parse_args(argv)
+    except ValueError:
+        print("Invalid assessment arguments; use --help for supported options.", file=sys.stderr)
+        return 1
     cancelled = False
     def stop(*_):
         nonlocal cancelled
@@ -614,37 +769,33 @@ def main(argv=None):
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
     try:
-        if args.command == "resume":
-            # The sole regular-file input open is explicit private recovery state,
-            # never an assessed source or media body.
-            checkpoint = read_checkpoint(args.checkpoint, lambda: cancelled)
-            if checkpoint["schema_version"] != VERSION:
-                raise ValueError("checkpoint version mismatch")
-            p = policy(**checkpoint["policy"])
-            if public_policy(p) != checkpoint["public_policy"]:
-                raise ValueError("checkpoint policy changed; new assessment required")
-            roots = roots_normalized([x[0] for x in checkpoint["roots"]])
-            if [[p, i] for p, i in roots] != checkpoint["roots"]:
-                raise ValueError("root identity changed; new assessment required")
-        else:
-            p = policy(max_files=args.max_files, max_depth=args.max_depth, max_seconds=args.max_seconds,
-                       metadata_rate=args.metadata_rate, excludes=args.exclude)
-            roots = roots_normalized(args.root)
+        if args.command == "resume" or args.command == "assess" and args.output:
+            raise ValueError("file output and private checkpoint recovery were retired; rescan to a pipe")
+        if args.command == "export":
+            export_report(read_report(sys.stdin), args.output)
+            return 0
+        # Check both descriptors before root traversal. Progress uses only pipes
+        # or terminals too, so redirected diagnostics cannot modify source files.
+        stream_only(sys.stdout)
+        stream_only(sys.stderr)
+        p = policy(max_files=args.max_files, max_depth=args.max_depth, max_seconds=args.max_seconds,
+                   metadata_rate=args.metadata_rate, excludes=args.exclude)
+        if len(args.root) > 100:
+            raise ValueError("root count out of bounds")
+        roots = roots_normalized(args.root)
         if not roots or len(roots) > 100:
             raise ValueError("root count out of bounds")
-        fd = output_dir(args.output, roots)
-        try:
-            r = run(roots, p, cancelled=lambda: cancelled, progress=lambda x: print(json.dumps(x), file=sys.stderr))
-            write(fd, "assessment.json", r)
-            write(fd, "assessment.md", markdown(r))
-            write(fd, "suggestions.json", suggestions(r))
-            write(fd, "private-checkpoint.json", {"schema_version": VERSION, "roots": roots, "policy": p, "public_policy": public_policy(p),
-                                                    "strategy": "rescan-all-replace-aggregates"})
-        finally:
-            os.close(fd)
+        r = run(roots, p, cancelled=lambda: cancelled,
+                progress=lambda x: print(json.dumps(x), file=sys.stderr))
+        emit_report(r, sys.stdout)
         return 0 if r["status"] == "complete" else 130 if r["status"] == "cancelled" else 2
-    except (OSError, ValueError, KeyError, TypeError):
-        print("Assessment could not start/save safely; check root access, fresh output and checkpoint policy.", file=sys.stderr)
+    except (OSError, ValueError, KeyError, TypeError, UnicodeError, RecursionError):
+        # A regular redirected stderr is not safe even for an error message.
+        try:
+            stream_only(sys.stderr)
+            print("Assessment refused unsafe input/output. Use assess through a pipe, or export into a fresh owner-private destination.", file=sys.stderr)
+        except (OSError, ValueError, AttributeError):
+            pass
         return 1
 
 

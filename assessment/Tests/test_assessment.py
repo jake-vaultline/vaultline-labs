@@ -194,22 +194,21 @@ class AssessmentTests(unittest.TestCase):
         parent_alias.symlink_to(self.base, target_is_directory=True)
         self.assertEqual(self.cli("assess", "--root", str(self.root), "--output", str(parent_alias / "new")).returncode, 1)
 
-    def test_resume_reconciles_changed_directory_and_root_identity(self):
+    def test_rescan_replaces_changed_directory_without_private_checkpoint(self):
         (self.root / "first").write_bytes(b"1")
-        out = self.base / "out"
-        result = self.cli("assess", "--root", str(self.root), "--output", str(out), "--metadata-rate", "10000")
-        self.assertEqual(result.returncode, 0, result.stderr)
+        first = self.cli("assess", "--root", str(self.root), "--metadata-rate", "10000")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(json.loads(first.stdout)["aggregates"]["logical_bytes"], 1)
         (self.root / "first").unlink()
         (self.root / "second").write_bytes(b"22")
-        checkpoint = out / "private-checkpoint.json"
-        for number in range(2):
-            resumed = self.base / f"resumed{number}"
-            self.assertEqual(self.cli("resume", "--checkpoint", str(checkpoint), "--output", str(resumed)).returncode, 0)
-            self.assertEqual(json.loads((resumed / "assessment.json").read_text())["aggregates"]["logical_bytes"], 2)
-        self.assertEqual(checkpoint.stat().st_mode & 0o777, 0o600)
-        self.root.rename(self.base / "oldroot")
-        self.root.mkdir()
-        self.assertEqual(self.cli("resume", "--checkpoint", str(checkpoint), "--output", str(self.base / "invalid")).returncode, 1)
+        for _ in range(2):
+            rescanned = self.cli("assess", "--root", str(self.root), "--metadata-rate", "10000")
+            self.assertEqual(rescanned.returncode, 0, rescanned.stderr)
+            self.assertEqual(json.loads(rescanned.stdout)["aggregates"]["logical_bytes"], 2)
+        self.assertEqual(sorted(p.name for p in self.base.iterdir()), [self.root.name])
+        # No stale private recovery file is trusted, opened or silently resumed.
+        self.assertEqual(self.cli("resume", "--checkpoint", str(self.root / "private-checkpoint.json"),
+                                  "--output", str(self.base / "invalid")).returncode, 1)
 
     def test_cancel_latency_and_partial_export(self):
         for n in range(20):
@@ -251,18 +250,19 @@ class AssessmentTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.suggestions(r)
 
-    def test_checkpoint_changed_policy_is_rejected(self):
-        out = self.base / "out"
-        self.assertEqual(self.cli("assess", "--root", str(self.root), "--output", str(out)).returncode, 0)
-        checkpoint = out / "private-checkpoint.json"
-        state = json.loads(checkpoint.read_text())
-        state["policy"]["madeUp"] = True
-        checkpoint.write_text(json.dumps(state))
-        self.assertEqual(self.cli("resume", "--checkpoint", str(checkpoint), "--output", str(self.base / "new")).returncode, 1)
-        del state["policy"]["madeUp"]
-        state["policy"]["max_files"] = 10
-        checkpoint.write_text(json.dumps(state))
+    def test_retired_checkpoint_and_file_output_are_rejected(self):
+        checkpoint = self.base / "private-checkpoint.json"
+        checkpoint.write_text(json.dumps({"schema_version": m.VERSION, "roots": [[str(self.root), None]],
+                                          "policy": {"madeUp": True}}))
+        checkpoint.chmod(0o600)
+        for payload in ("{}", checkpoint.read_text()):
+            result = subprocess.run([sys.executable, "-B", str(SOURCE), "export", "--output", str(self.base / "new")],
+                                    input=payload, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertFalse((self.base / "new").exists())
         self.assertEqual(self.cli("resume", "--checkpoint", str(checkpoint), "--output", str(self.base / "new2")).returncode, 1)
+        self.assertEqual(self.cli("assess", "--root", str(self.root), "--output", str(self.base / "out")).returncode, 1)
+        self.assertFalse((self.base / "out").exists())
 
     def test_selected_project_package_and_missing_root(self):
         package = self.root / "edit.fcpbundle"
